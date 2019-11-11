@@ -10,7 +10,7 @@
 ## Usage 
 Simple usage example:
 ```bash
-$ python label2ply.py --path *path to segmentation file*.h5 --labels 10 34 101 
+$ python label_to_ply.py --path *path to segmentation file*.h5 --labels 10 34 101 
 ```
 This script will create a .ply file for each label at the location of the segmentation file.
 
