@@ -1,11 +1,20 @@
 # python-seg2mesh
 
 ## Requirement
-- python 3.6
+- python 3.6 or 3.7
 - numpy
-- skimage
+- scikit-image
 - h5py
 - plyfile
+
+# Installation
+If you are using anaconda python:
+```bash
+$ conda install -c anaconda numpy h5py
+$ conda install -c conda-forge scikit-image
+$ pip install plyfile
+```
+
 
 ## Usage 
 Simple usage example:
