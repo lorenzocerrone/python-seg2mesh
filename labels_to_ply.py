@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from skimage import measure
 import h5py
 import os
@@ -88,12 +87,12 @@ if __name__ == "__main__":
     if args.save_path is not None:
         assert os.path.isdir(args.save_path), "Save path is not a directory"
 
-    center_origin = True if args.center_origin == "True" else False
+    _center_origin = True if args.center_origin == "True" else False
 
     # Run main script over all labels
-    for label in args.labels:
-        print(f"{50*'='} \nExtracting Label: {label}")
+    for _label in args.labels:
+        print(f"{50*'='} \nExtracting Label: {_label}")
         label2mesh(args.path,
-                   label,
+                   _label,
                    save_path=args.save_path,
-                   center_origin=center_origin)
+                   center_origin=_center_origin)
