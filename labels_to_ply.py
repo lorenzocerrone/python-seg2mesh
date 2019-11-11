@@ -5,7 +5,7 @@ import os
 import plyfile
 import argparse
 
-_dataset = "segmentation"
+_dataset = "label"
 
 
 def label2mesh(path, label, save_path=None, center_origin=False):
