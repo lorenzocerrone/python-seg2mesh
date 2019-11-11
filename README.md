@@ -8,7 +8,7 @@
 - plyfile
 
 ## Usage 
-Simple usage example:
+Usage example:
 ```bash
 $ python label_to_ply.py --path *path to segmentation file*.h5 --labels 10 34 101 
 ```
