@@ -5,28 +5,76 @@ import os
 import plyfile
 import argparse
 
-_dataset = "label"
+_dataset = "segmentation"
 
 
-def label2mesh(path, label, save_path=None, center_origin=False):
+def compute_obj(segmentation, label):
+    """Extract a mask where the label is"""
+    print(f"- Extracting object: {label}")
+    obj = segmentation == label
+    return obj
+
+
+def single_obj_mesh(segmentation, label):
+    """Compute a mesh from a single object"""
+    obj = compute_obj(segmentation, label)
+
+    if not np.any(obj):
+        # If no index match nothing to do
+        print(f"- Label: {label} Not found")
+        return None, None
+
+    obj = obj.astype(float)
+
+    # Extract vertex and faces
+    vertx, faces, _, _ = measure.marching_cubes_lewiner(obj)
+    return vertx, faces
+
+
+def multi_obj_mesh(segmentation, labels):
+    """Concatenate multiple objects in a single mesh"""
+    vertx, faces = [], []
+    faces_max = 0
+    for label in labels:
+        obj = compute_obj(segmentation, label)
+        if np.any(obj):
+            obj = obj.astype(float)
+
+            # Extract vertex and faces
+            _vertx, _faces, _, _ = measure.marching_cubes_lewiner(obj)
+
+            # Add max to ensure unique faces
+            _faces += faces_max
+
+            faces_max = _faces.max() + 1
+            vertx.append(_vertx)
+            faces.append(_faces)
+        else:
+            print(f"- Label: {label} Not found")
+
+    vertx = np.concatenate(vertx, axis=0)
+    faces = np.concatenate(faces, axis=0)
+
+    return vertx, faces
+
+
+def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False):
     print(f"- Loading segmentation from :{path}")
     with h5py.File(path, "r") as f:
         segmentation = f[_dataset][...]
 
     print(f"- Object extraction and computing marching cubes")
     # if needed more than single label a different criteria can be used
-    obj = segmentation == label
-    if not np.any(obj):
-        print(f"- Label: {label} Not found")
+    if multi_file:
+        vertx, faces = single_obj_mesh(segmentation, label)
+    else:
+        vertx, faces = multi_obj_mesh(segmentation, label)
+
+    # If no index match nothing to do
+    if vertx is None:
         return 0
 
-    obj = obj.astype(float)
-
-    # Extract vertex and faces
-
-    vertx, faces, _, _ = measure.marching_cubes_lewiner(obj)
-
-    if center_origin:
+    if center_origin and multi_file:
         mean_zxy = np.mean(vertx, axis=0)
     else:
         mean_zxy = np.array([0, 0, 0])
@@ -54,6 +102,9 @@ def label2mesh(path, label, save_path=None, center_origin=False):
     faces_attributes = plyfile.PlyElement.describe(faces_attributes, 'face')
 
     # if no path is specified the ply is create next to the original file
+    if not multi_file:
+        label = "".join(map(lambda x: f"{x}_", label))
+
     if save_path is None:
         new_file = f"{os.path.splitext(path)[0]}_label_{label}.ply"
     else:
@@ -72,6 +123,8 @@ def _parser():
                         required=True)
     parser.add_argument('--labels', type=int, help='segments id to extract (example: --labels 10 25 100)',
                         required=True, nargs='+')
+    parser.add_argument('--multi-file', type=str, help='If "True" all meshes are saved in a different file',
+                        default="False", required=False)
     parser.add_argument('--save-path', type=str, help='Path to alternative save directory',
                         default=None, required=False)
     parser.add_argument('--center-origin', type=str, help='Shift the mesh to the axis origin',
@@ -88,11 +141,22 @@ if __name__ == "__main__":
         assert os.path.isdir(args.save_path), "Save path is not a directory"
 
     _center_origin = True if args.center_origin == "True" else False
+    _multi_file = True if args.multi_file == "True" else False
+    _label = ""
+    print(_multi_file)
 
-    # Run main script over all labels
-    for _label in args.labels:
-        print(f"{50*'='} \nExtracting Label: {_label}")
+    if _multi_file:
+        # Run main script over all labels for multiple files
+        for _label in args.labels:
+            print(f"{50*'='} \nExtracting Label: {_label}")
+            label2mesh(args.path,
+                       _label,
+                       multi_file=True,
+                       save_path=args.save_path,
+                       center_origin=_center_origin)
+    else:
         label2mesh(args.path,
-                   _label,
+                   args.labels,
+                   multi_file=False,
                    save_path=args.save_path,
                    center_origin=_center_origin)

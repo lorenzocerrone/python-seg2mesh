@@ -22,9 +22,10 @@ Usage example:
 ```bash
 $ python label_to_ply.py --path *path to segmentation file*.h5 --labels 10 34 101 
 ```
-This script will create a .ply file for each label at the location of the segmentation file.
+This script will create a .ply file with all objects in the same file.
 
 #### optional arguments
+* multi-file: If "True" all meshes are saved in a different file. 
 * save-path: path to alternative directory where to save ply file.
 * center-origin: Default False. If true translate the object at the axis origin.
 
