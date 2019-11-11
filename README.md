@@ -1,4 +1,5 @@
 # python-seg2mesh
+Simple utility for extracting a single (or multiple) label from a h5 segmentation into a ply mesh.
 
 ## Requirement
 - python 3.6 or 3.7
@@ -17,9 +18,9 @@ $ pip install plyfile
 
 
 ## Usage 
-Simple usage example:
+Usage example:
 ```bash
-$ python label2ply.py --path *path to segmentation file*.h5 --labels 10 34 101 
+$ python label_to_ply.py --path *path to segmentation file*.h5 --labels 10 34 101 
 ```
 This script will create a .ply file for each label at the location of the segmentation file.
 
