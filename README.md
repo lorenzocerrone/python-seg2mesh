@@ -1,5 +1,5 @@
 # python-seg2mesh
-Simple utility for extracting a single (or multiple) label from a h5 segmentation into a ply mesh.
+Simple utility for exporting single or multiple labels from a segmentation (h5 file only) into a mesh (ply only).
 
 ## Requirement
 - python 3.6 or 3.7
