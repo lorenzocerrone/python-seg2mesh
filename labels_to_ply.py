@@ -10,7 +10,7 @@ _dataset = "label"
 
 def clean_object(obj):
     """If object has more than one connected component returns only biggest components"""
-    print("- Cleaning for detached object")
+    print("- Cleaning small detached objects")
     # relabel connected components
     obj_relabeled = measure.label(obj, background=0)
 
