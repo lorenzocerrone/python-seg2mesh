@@ -5,7 +5,23 @@ import os
 import plyfile
 import argparse
 
-_dataset = "segmentation"
+_dataset = "label"
+
+
+def clean_object(obj):
+    """If object has more than one connected component returns only biggest components"""
+    print("- Cleaning for detached object")
+    # relabel connected components
+    obj_relabeled = measure.label(obj, background=0)
+
+    # find biggest object id
+    ids, counts = np.unique(obj_relabeled, return_counts=True)
+    ids, counts = ids[1:], counts[1:]
+    largest_id = ids[np.argmax(counts)]
+
+    # select single object
+    obj_clean = obj_relabeled == largest_id
+    return obj_clean
 
 
 def compute_obj(segmentation, label):
@@ -24,6 +40,7 @@ def single_obj_mesh(segmentation, label):
         print(f"- Label: {label} Not found")
         return None, None
 
+    obj = clean_object(obj)
     obj = obj.astype(float)
 
     # Extract vertex and faces
@@ -38,6 +55,7 @@ def multi_obj_mesh(segmentation, labels):
     for label in labels:
         obj = compute_obj(segmentation, label)
         if np.any(obj):
+            obj = clean_object(obj)
             obj = obj.astype(float)
 
             # Extract vertex and faces
@@ -143,7 +161,6 @@ if __name__ == "__main__":
     _center_origin = True if args.center_origin == "True" else False
     _multi_file = True if args.multi_file == "True" else False
     _label = ""
-    print(_multi_file)
 
     if _multi_file:
         # Run main script over all labels for multiple files
