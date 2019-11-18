@@ -28,5 +28,5 @@ This script will create a .ply file with all objects in the same file.
 * multi-file: If "True" all meshes are saved in a different file. 
 * save-path: path to alternative directory where to save ply file.
 * center-origin: Default False. If true translate the object at the axis origin.
-
+* dataset: Default "label". Name of the h5 dataset to retrieve the labels from.
 
