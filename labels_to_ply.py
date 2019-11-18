@@ -6,7 +6,7 @@ import plyfile
 import argparse
 
 _dataset = "label"
-
+# some junk here by alexis
 
 def clean_object(obj):
     """If object has more than one connected component returns only biggest components"""
