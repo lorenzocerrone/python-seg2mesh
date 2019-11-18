@@ -7,7 +7,7 @@ import argparse
 
 def clean_object(obj):
     """If object has more than one connected component returns only biggest components"""
-    print("- Cleaning small detached objects")
+    print(" - Cleaning small detached objects")
     # relabel connected components
     obj_relabeled = measure.label(obj, background=0)
 
@@ -28,7 +28,7 @@ def compute_obj(segmentation, label):
     return obj
 
 
-def single_obj_mesh(segmentation, label):
+def single_obj_mesh(segmentation, label, step_size):
     """Compute a mesh from a single object"""
     obj = compute_obj(segmentation, label)
 
@@ -41,11 +41,11 @@ def single_obj_mesh(segmentation, label):
     obj = obj.astype(float)
 
     # Extract vertex and faces
-    vertx, faces, _, _ = measure.marching_cubes_lewiner(obj)
+    vertx, faces, _, _ = measure.marching_cubes_lewiner(obj, step_size=step_size)
     return vertx, faces
 
 
-def multi_obj_mesh(segmentation, labels):
+def multi_obj_mesh(segmentation, labels, step_size):
     """Concatenate multiple objects in a single mesh"""
     vertx, faces = [], []
     faces_max = 0
@@ -56,7 +56,7 @@ def multi_obj_mesh(segmentation, labels):
             obj = obj.astype(float)
 
             # Extract vertex and faces
-            _vertx, _faces, _, _ = measure.marching_cubes_lewiner(obj)
+            _vertx, _faces, _, _ = measure.marching_cubes_lewiner(obj, step_size=step_size)
 
             # Add max to ensure unique faces
             _faces += faces_max
@@ -73,7 +73,7 @@ def multi_obj_mesh(segmentation, labels):
     return vertx, faces
 
 
-def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False, dataset="label"):
+def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False, dataset="label", step_size=1):
     print(f"- Loading segmentation from :{path}")
     with h5py.File(path, "r") as f:
         segmentation = f[dataset][...]
@@ -81,9 +81,9 @@ def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False
     print(f"- Object extraction and computing marching cubes")
     # if needed more than single label a different criteria can be used
     if multi_file:
-        vertx, faces = single_obj_mesh(segmentation, label)
+        vertx, faces = single_obj_mesh(segmentation, label, step_size)
     else:
-        vertx, faces = multi_obj_mesh(segmentation, label)
+        vertx, faces = multi_obj_mesh(segmentation, label, step_size)
 
     # If no index match nothing to do
     if vertx is None:
@@ -118,13 +118,13 @@ def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False
 
     # if no path is specified the ply is create next to the original file
     if not multi_file:
-        label = "".join(map(lambda x: f"{x}_", label))
+        label = "".join(map(lambda x: f"_{x}", label))
 
     if save_path is None:
-        new_file = f"{os.path.splitext(path)[0]}_label_{label}.ply"
+        new_file = f"{os.path.splitext(path)[0]}_label{label}.ply"
     else:
         new_file = os.path.splitext(path)[0]
-        new_file = f"{os.path.basename(new_file)}_label_{label}.ply"
+        new_file = f"{os.path.basename(new_file)}_label{label}.ply"
         new_file = os.path.join(save_path, new_file)
 
     print(f"- saving file at: {new_file}")
@@ -146,6 +146,9 @@ def _parser():
                         default="False", required=False)
     parser.add_argument('--dataset', type=str, help='Name of the h5 dataset to retrieve the labels from',
                         default="label", required=False)
+    parser.add_argument('--step-size', type=int, help='Marching cube step size (int). The higher the coarser the output'
+                                                      ' mesh. Default 1 (full resolution)',
+                        default=1, required=False)
     return parser.parse_args()
 
 
@@ -161,6 +164,8 @@ if __name__ == "__main__":
     _multi_file = True if args.multi_file == "True" else False
     _label = ""
     _dataset = args.dataset
+    _step_size = args.step_size
+
 
     if _multi_file:
         # Run main script over all labels for multiple files
@@ -171,11 +176,13 @@ if __name__ == "__main__":
                        multi_file=True,
                        save_path=args.save_path,
                        center_origin=_center_origin,
-                       dataset = _dataset)
+                       dataset=_dataset,
+                       step_size=_step_size)
     else:
         label2mesh(args.path,
                    args.labels,
                    multi_file=False,
                    save_path=args.save_path,
                    center_origin=_center_origin,
-                   dataset = _dataset)
+                   dataset=_dataset,
+                   step_size=_step_size)
