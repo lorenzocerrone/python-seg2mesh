@@ -5,9 +5,6 @@ import os
 import plyfile
 import argparse
 
-_dataset = "label"
-# some junk here by alexis
-
 def clean_object(obj):
     """If object has more than one connected component returns only biggest components"""
     print("- Cleaning small detached objects")
@@ -76,10 +73,10 @@ def multi_obj_mesh(segmentation, labels):
     return vertx, faces
 
 
-def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False):
+def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False, dataset="label"):
     print(f"- Loading segmentation from :{path}")
     with h5py.File(path, "r") as f:
-        segmentation = f[_dataset][...]
+        segmentation = f[dataset][...]
 
     print(f"- Object extraction and computing marching cubes")
     # if needed more than single label a different criteria can be used
@@ -139,7 +136,7 @@ def _parser():
                                                  'label from a h5 segmentation into a ply mesh')
     parser.add_argument('--path', type=str, help='Path to the segmentation file (only h5)',
                         required=True)
-    parser.add_argument('--labels', type=int, help='segments id to extract (example: --labels 10 25 100)',
+    parser.add_argument('--labels', type=int, help='Labels id to extract (example: --labels 10 25 100)',
                         required=True, nargs='+')
     parser.add_argument('--multi-file', type=str, help='If "True" all meshes are saved in a different file',
                         default="False", required=False)
@@ -147,6 +144,8 @@ def _parser():
                         default=None, required=False)
     parser.add_argument('--center-origin', type=str, help='Shift the mesh to the axis origin',
                         default="False", required=False)
+    parser.add_argument('--dataset', type=str, help='Name of the h5 dataset to retrieve the labels from',
+                        default="label", required=False)
     return parser.parse_args()
 
 
@@ -161,6 +160,7 @@ if __name__ == "__main__":
     _center_origin = True if args.center_origin == "True" else False
     _multi_file = True if args.multi_file == "True" else False
     _label = ""
+    _dataset = args.dataset
 
     if _multi_file:
         # Run main script over all labels for multiple files
@@ -170,10 +170,12 @@ if __name__ == "__main__":
                        _label,
                        multi_file=True,
                        save_path=args.save_path,
-                       center_origin=_center_origin)
+                       center_origin=_center_origin,
+                       dataset = _dataset)
     else:
         label2mesh(args.path,
                    args.labels,
                    multi_file=False,
                    save_path=args.save_path,
-                   center_origin=_center_origin)
+                   center_origin=_center_origin,
+                   dataset = _dataset)
