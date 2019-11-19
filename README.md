@@ -2,7 +2,7 @@
 Simple utility for exporting single or multiple labels from a segmentation (h5 file only) into a mesh (ply only).
 
 ## Requirement
-- python 3.6 or 3.7
+- python 3.6
 - numpy
 - scikit-image
 - h5py
@@ -11,7 +11,7 @@ Simple utility for exporting single or multiple labels from a segmentation (h5 f
 # Installation
 If you are using anaconda python:
 ```bash
-$ conda install -c anaconda numpy h5py
+$ conda install -c anaconda numpy h5py vtk
 $ conda install -c conda-forge scikit-image
 $ pip install plyfile
 ```
@@ -30,3 +30,15 @@ This script will create a .ply file with all objects in the same file.
 * center-origin: Default False. If true translate the object at the axis origin.
 * dataset: Default "label". Name of the h5 dataset to retrieve the labels from.
 * step-size: Default 1. Marching cube step size (only int). The higher the step size the coarser the output.
+
+#### Filters arguments
+The filters are implemented as "safe" operations. 
+Thus they will not modify the main original mesh but create a new unique file.\
+Usage example:
+```bash
+$ python label_to_ply.py --path *path to segmentation file*.h5 --labels 10 --reduction 0.25 --iterations 100
+```
+* reduction: If reduction > 0 a decimation filter is applied. MaxValue 1.0 (100%reduction).
+* iterations: If iteration > 0 a Laplacian smoothing filter is applied.
+* relaxation: The smaller the better accuracy but slower convergence. Default 0.1.
+* edge-smoothing: Apply edge smoothing. Default False, seems to help after very intensive decimation.
