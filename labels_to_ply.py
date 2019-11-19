@@ -5,6 +5,7 @@ import os
 import plyfile
 import argparse
 
+
 def clean_object(obj):
     """If object has more than one connected component returns only biggest components"""
     print(" - Cleaning small detached objects")
@@ -129,6 +130,7 @@ def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False
 
     print(f"- saving file at: {new_file}")
     plyfile.PlyData((vertex_attributes, faces_attributes)).write(new_file)
+    return new_file
 
 
 def _parser():
@@ -149,6 +151,20 @@ def _parser():
     parser.add_argument('--step-size', type=int, help='Marching cube step size (int). The higher the coarser the output'
                                                       ' mesh. Default 1 (full resolution)',
                         default=1, required=False)
+
+    # Post processing
+    parser.add_argument('--reduction', type=float, help='If reduction > 0 a decimation filter is applied.'
+                                                        ' MaxValue 1.0 (100%reduction).',
+                        default=-.0, required=False)
+
+    parser.add_argument('--iterations', type=int, help='If iteration > 0 a Laplacian smoothing filter is applied.',
+                        default=0, required=False)
+    parser.add_argument('--relaxation', type=float, help='The smaller the better accuracy but slower convergence.'
+                                                         ' Default 0.1',
+                        default=0.1, required=False)
+    parser.add_argument('--edge-smoothing', type=str, help='Apply edge smoothing. Default False,'
+                                                          ' seems to help after very intensive decimation',
+                        default="False", required=False)
     return parser.parse_args()
 
 
@@ -166,23 +182,46 @@ if __name__ == "__main__":
     _dataset = args.dataset
     _step_size = args.step_size
 
-
     if _multi_file:
         # Run main script over all labels for multiple files
+        out_path = []
         for _label in args.labels:
             print(f"{50*'='} \nExtracting Label: {_label}")
-            label2mesh(args.path,
-                       _label,
-                       multi_file=True,
-                       save_path=args.save_path,
-                       center_origin=_center_origin,
-                       dataset=_dataset,
-                       step_size=_step_size)
+            _path = label2mesh(args.path,
+                               _label,
+                               multi_file=True,
+                               save_path=args.save_path,
+                               center_origin=_center_origin,
+                               dataset=_dataset,
+                               step_size=_step_size)
+            out_path.append(_path)
     else:
-        label2mesh(args.path,
-                   args.labels,
-                   multi_file=False,
-                   save_path=args.save_path,
-                   center_origin=_center_origin,
-                   dataset=_dataset,
-                   step_size=_step_size)
+        _path = label2mesh(args.path,
+                           args.labels,
+                           multi_file=False,
+                           save_path=args.save_path,
+                           center_origin=_center_origin,
+                           dataset=_dataset,
+                           step_size=_step_size)
+        out_path = [_path]
+
+    print('Post processing')
+    """ Huge hack but vtk python wrapper creates a lot of import problems"""
+    from subprocess import call
+
+    for path in out_path:
+        if args.save_path is None:
+            call(["python", "./plyfilters.py",
+                  "--path", path,
+                  "--reduction", str(args.reduction),
+                  "--iterations", str(args.iterations),
+                  "--relaxation", str(args.relaxation),
+                  "--edge-smoothing", str(args.edge_smoothing)])
+        else:
+            call(["python", "./plyfilters.py",
+                  "--path", path,
+                  "--reduction", str(args.reduction),
+                  "--iterations", str(args.iterations),
+                  "--relaxation", str(args.relaxation),
+                  "--edge-smoothing", str(args.edge_smoothing),
+                  "--save-path", args.save_path])
