@@ -1,40 +1,13 @@
-
 import os
-import sys
 import argparse
-import importlib.util
+from vtk import vtkPolyData, vtkPLYReader, vtkPLYWriter, vtkDecimatePro, vtkSmoothPolyDataFilter, vtkPolyDataNormals
 
-
-""" Weird import needed to work in anaconda 3.6"""
-def weird_importer():
-    # import vtkmodules.all
-    all_spec = importlib.util.find_spec('vtkmodules.all')
-    all_m = importlib.util.module_from_spec(all_spec)
-    all_spec.loader.exec_module(all_m)
-
-    # import vtkmodules
-    vtkmodules_spec = importlib.util.find_spec('vtkmodules')
-    vtkmodules_m = importlib.util.module_from_spec(vtkmodules_spec)
-    vtkmodules_spec.loader.exec_module(vtkmodules_m)
-
-    # make vtkmodules.all act as the vtkmodules package to support importing
-    # other modules from vtkmodules package via `vtk`.
-    all_m.__path__ = vtkmodules_m.__path__
-
-    del all_spec, vtkmodules_spec
-
-    # replace old `vtk` module with the `all` package.
-    sys.modules[__name__] = all_m
-
-weird_importer()
-"""end of weird import"""
 
 
 def decimation(path, reduction=0.25, savepath=None):
     """ Edit a mesh file (.ply format) reducing the density of the mesh using decimation"""
     # source https://lorensen.github.io/VTKExamples/site/Cxx/Meshes/Decimation/
 
-    from plyfilters import vtkPolyData, vtkPLYReader, vtkPLYWriter, vtkDecimatePro
     # read Ply file
     reader = vtkPLYReader()
     reader.SetFileName(path)
@@ -74,7 +47,6 @@ def smooth(path, iterations=100, relaxation=0.1, edgesmoothing=True, savepath=No
     """ Edit a mesh file (ply format) applying iterative Laplacian smoothing """
     # source https://vtk.org/Wiki/VTK/Examples/Cxx/PolyData/SmoothPolyDataFilter
 
-    from plyfilters import vtkPolyData, vtkPLYReader, vtkPLYWriter, vtkSmoothPolyDataFilter, vtkPolyDataNormals
     # read Ply file
     reader = vtkPLYReader()
     reader.SetFileName(path)

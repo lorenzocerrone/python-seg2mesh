@@ -206,22 +206,17 @@ if __name__ == "__main__":
         out_path = [_path]
 
     print('Post processing')
-    """ Huge hack but vtk python wrapper creates a lot of import problems"""
-    from subprocess import call
+    from plyfilters import decimation, smooth
 
     for path in out_path:
-        if args.save_path is None:
-            call(["python", "./plyfilters.py",
-                  "--path", path,
-                  "--reduction", str(args.reduction),
-                  "--iterations", str(args.iterations),
-                  "--relaxation", str(args.relaxation),
-                  "--edge-smoothing", str(args.edge_smoothing)])
+        assert args.reduction < 1, "mesh can not be reduce factor cannot be larger than 1 (more than 100% reduction)"
+        if args.reduction > 0:
+            print("- Applying decimation")
+            out = decimation(path, args.reduction, args.save_path)
         else:
-            call(["python", "./plyfilters.py",
-                  "--path", path,
-                  "--reduction", str(args.reduction),
-                  "--iterations", str(args.iterations),
-                  "--relaxation", str(args.relaxation),
-                  "--edge-smoothing", str(args.edge_smoothing),
-                  "--save-path", args.save_path])
+            out = path
+
+        if args.iterations > 0:
+            print("- Applying Laplacian smoothing")
+            _edgemoothing = True if args.edge_smoothing == "True" else False
+            smooth(out, args.iterations, args.relaxation, _edgemoothing, args.save_path)
