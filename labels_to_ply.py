@@ -2,13 +2,15 @@ import numpy as np
 from skimage import measure
 import h5py
 import os
+import csv
+import re
 import plyfile
 import argparse
 
 
 def clean_object(obj):
     """If object has more than one connected component returns only biggest components"""
-    print(" - Cleaning small detached objects")
+    print("- Cleaning small detached objects")
     # relabel connected components
     obj_relabeled = measure.label(obj, background=0)
 
@@ -128,7 +130,7 @@ def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False
         new_file = f"{os.path.basename(new_file)}_label{label}.ply"
         new_file = os.path.join(save_path, new_file)
 
-    print(f"- saving file at: {new_file}")
+    print(f"  -> Saving file at: {new_file}")
     plyfile.PlyData((vertex_attributes, faces_attributes)).write(new_file)
     return new_file
 
@@ -139,7 +141,7 @@ def _parser():
     parser.add_argument('--path', type=str, help='Path to the segmentation file (only h5)',
                         required=True)
     parser.add_argument('--labels', type=int, help='Labels id to extract (example: --labels 10 25 100)',
-                        required=True, nargs='+')
+                        required=False, nargs='+')
     parser.add_argument('--multi-file', type=str, help='If "True" all meshes are saved in a different file',
                         default="False", required=False)
     parser.add_argument('--save-path', type=str, help='Path to alternative save directory',
@@ -165,6 +167,9 @@ def _parser():
     parser.add_argument('--edge-smoothing', type=str, help='Apply edge smoothing. Default False,'
                                                           ' seems to help after very intensive decimation',
                         default="False", required=False)
+    #Batch Mode
+    parser.add_argument('--batch', type=str, help='Batch process several h5 files. Pass path to a tab-delimited file for time points and labels. Forces --multi-file TRUE.', default="", required=False)
+     
     return parser.parse_args()
 
 
@@ -178,23 +183,51 @@ if __name__ == "__main__":
 
     _center_origin = True if args.center_origin == "True" else False
     _multi_file = True if args.multi_file == "True" else False
+    _batch = True if args.batch !="" else False
+    if _batch: _multi_file = True
     _label = ""
+    _labels_list = args.batch
     _dataset = args.dataset
     _step_size = args.step_size
 
     if _multi_file:
-        # Run main script over all labels for multiple files
-        out_path = []
-        for _label in args.labels:
-            print(f"{50*'='} \nExtracting Label: {_label}")
-            _path = label2mesh(args.path,
-                               _label,
-                               multi_file=True,
-                               save_path=args.save_path,
-                               center_origin=_center_origin,
-                               dataset=_dataset,
-                               step_size=_step_size)
-            out_path.append(_path)
+        if _batch:
+            _pattern_found = re.match("(^.*[tT]\d{3,})\d{2}(.*)", args.path)
+            if _pattern_found:
+                _regex_frgt1 = _pattern_found.group(1)
+                _regex_frgt2 = _pattern_found.group(2)
+                with open(_labels_list) as tsv:
+                    next(tsv) # skip headings
+                    for time_point, labels in csv.reader(tsv, delimiter="\t"):
+                        _inpath = f"{_regex_frgt1}{time_point}{_regex_frgt2}"
+                        print(f"{50*'='} \nProcessing file: {_inpath}")
+                        _labels = labels.split()
+                        # Run main script over all labels for multiple files
+                        for label in _labels:
+                            print(f"Extracting Label: {int(label)}")
+                            _path = label2mesh(_inpath,
+                                               int(label),
+                                               multi_file=True,
+                                               save_path=args.save_path,
+                                               center_origin=_center_origin,
+                                               dataset=_dataset,
+                                               step_size=_step_size)
+                            out_path.append(_path)
+            else:
+                "Input file is not of the correct format."
+        else:
+            # Run main script over all labels for multiple files
+            out_path = []
+            for _label in args.labels:
+                print(f"{50*'='} \nExtracting Label: {_label}")
+                _path = label2mesh(args.path,
+                                   _label,
+                                   multi_file=True,
+                                   save_path=args.save_path,
+                                   center_origin=_center_origin,
+                                   dataset=_dataset,
+                                   step_size=_step_size)
+                out_path.append(_path)
     else:
         _path = label2mesh(args.path,
                            args.labels,
@@ -205,7 +238,7 @@ if __name__ == "__main__":
                            step_size=_step_size)
         out_path = [_path]
 
-    print('Post processing')
+    print(f"{50*'='} \nPost processing")
     from plyfilters import decimation, smooth
 
     for path in out_path:

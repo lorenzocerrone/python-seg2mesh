@@ -39,7 +39,7 @@ def decimation(path, reduction=0.25, savepath=None):
     writer.SetInputData(decimatedPoly)
     writer.SetFileName(outfile_path)
     writer.Write()
-    print(f" - saving file at: {outfile_path}")
+    print(f"  -> Saving file at: {outfile_path}")
     return outfile_path
 
 
@@ -94,7 +94,7 @@ def smooth(path, iterations=100, relaxation=0.1, edgesmoothing=True, savepath=No
     writer.SetInputData(normalPoly)
     writer.SetFileName(outfile_path)
     writer.Write()
-    print(f" - saving file at: {outfile_path}")
+    print(f"  -> Saving file at: {outfile_path}")
     return outfile_path
 
 
