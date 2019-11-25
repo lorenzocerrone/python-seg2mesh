@@ -32,6 +32,7 @@ This script will create a .ply file with all objects in the same file.
 * center-origin: Default False. If true translate the object at the axis origin.
 * dataset: Default "label". Name of the h5 dataset to retrieve the labels from.
 * step-size: Default 1. Marching cube step size (only int). The higher the step size the coarser the output.
+* simple-name: Use this as base name for output file(s).
 
 #### Filters arguments
 The filters are implemented as "safe" operations. 
