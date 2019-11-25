@@ -76,7 +76,7 @@ def multi_obj_mesh(segmentation, labels, step_size):
     return vertx, faces
 
 
-def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False, dataset="label", step_size=1):
+def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False, dataset="label", step_size=1, outputbasename=""):
     print(f"- Loading segmentation from :{path}")
     with h5py.File(path, "r") as f:
         segmentation = f[dataset][...]
@@ -124,11 +124,19 @@ def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False
         label = "".join(map(lambda x: f"_{x}", label))
 
     if save_path is None:
-        new_file = f"{os.path.splitext(path)[0]}_label{label}.ply"
+        if outputbasename != "":
+            new_file = f"{outputbasename}_label{label}.ply"
+            new_file = os.path.join(os.path.dirname(path), new_file)
+        else:
+            new_file = f"{os.path.splitext(path)[0]}_label{label}.ply"
     else:
-        new_file = os.path.splitext(path)[0]
-        new_file = f"{os.path.basename(new_file)}_label{label}.ply"
-        new_file = os.path.join(save_path, new_file)
+        if outputbasename != "":
+            new_file = f"{outputbasename}_label{label}.ply"
+            new_file = os.path.join(save_path, new_file)
+        else:
+            new_file = os.path.splitext(path)[0]
+            new_file = f"{os.path.basename(new_file)}_label{label}.ply"
+            new_file = os.path.join(save_path, new_file)
 
     print(f"  -> Saving file at: {new_file}")
     plyfile.PlyData((vertex_attributes, faces_attributes)).write(new_file)
@@ -169,7 +177,9 @@ def _parser():
                         default="False", required=False)
     #Batch Mode
     parser.add_argument('--batch', type=str, help='Batch process several h5 files. Pass path to a tab-delimited file for time points and labels. Forces --multi-file TRUE.', default="", required=False)
-     
+    #Simple Name Mode
+    parser.add_argument('--simple-name', type=str, help='Use this as base name for output file(s).', default="", required=False)
+    
     return parser.parse_args()
 
 
@@ -189,6 +199,9 @@ if __name__ == "__main__":
     _labels_list = args.batch
     _dataset = args.dataset
     _step_size = args.step_size
+    _simple_name = args.simple_name
+    
+    out_path = []
 
     if _multi_file:
         if _batch:
@@ -202,6 +215,7 @@ if __name__ == "__main__":
                         _inpath = f"{_regex_frgt1}{time_point}{_regex_frgt2}"
                         print(f"{50*'='} \nProcessing file: {_inpath}")
                         _labels = labels.split()
+                        _simple_name_batch = f"{_simple_name}_t{time_point}"
                         # Run main script over all labels for multiple files
                         for label in _labels:
                             print(f"Extracting Label: {int(label)}")
@@ -211,7 +225,8 @@ if __name__ == "__main__":
                                                save_path=args.save_path,
                                                center_origin=_center_origin,
                                                dataset=_dataset,
-                                               step_size=_step_size)
+                                               step_size=_step_size,
+                                               outputbasename=_simple_name_batch)
                             out_path.append(_path)
             else:
                 "Input file is not of the correct format."
@@ -226,7 +241,8 @@ if __name__ == "__main__":
                                    save_path=args.save_path,
                                    center_origin=_center_origin,
                                    dataset=_dataset,
-                                   step_size=_step_size)
+                                   step_size=_step_size,
+                                   outputbasename=_simple_name)
                 out_path.append(_path)
     else:
         _path = label2mesh(args.path,
@@ -235,7 +251,8 @@ if __name__ == "__main__":
                            save_path=args.save_path,
                            center_origin=_center_origin,
                            dataset=_dataset,
-                           step_size=_step_size)
+                           step_size=_step_size,
+                           outputbasename=_simple_name)
         out_path = [_path]
 
     print(f"{50*'='} \nPost processing")
