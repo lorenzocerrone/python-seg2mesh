@@ -76,7 +76,7 @@ def multi_obj_mesh(segmentation, labels, step_size):
     return vertx, faces
 
 
-def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False, dataset="label", step_size=1, outputbasename=""):
+def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False, dataset="label", step_size=1, outputbasename="", save_subfolder=""):
     print(f"- Loading segmentation from :{path}")
     with h5py.File(path, "r") as f:
         segmentation = f[dataset][...]
@@ -126,19 +126,20 @@ def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False
     if save_path is None:
         if outputbasename != "":
             new_file = f"{outputbasename}_label{label}.ply"
-            new_file = os.path.join(os.path.dirname(path), new_file)
+            new_file = os.path.join(os.path.dirname(path), save_subfolder, new_file)
         else:
-            new_file = f"{os.path.splitext(path)[0]}_label{label}.ply"
+            new_file = os.path.join(save_subfolder,f"{os.path.splitext(path)[0]}_label{label}.ply")
     else:
         if outputbasename != "":
             new_file = f"{outputbasename}_label{label}.ply"
-            new_file = os.path.join(save_path, new_file)
+            new_file = os.path.join(save_path, save_subfolder, new_file)
         else:
             new_file = os.path.splitext(path)[0]
             new_file = f"{os.path.basename(new_file)}_label{label}.ply"
-            new_file = os.path.join(save_path, new_file)
+            new_file = os.path.join(save_path, save_subfolder, new_file)
 
     print(f"  -> Saving file at: {new_file}")
+    os.makedirs(os.path.dirname(new_file), exist_ok=True)
     plyfile.PlyData((vertex_attributes, faces_attributes)).write(new_file)
     return new_file
 
@@ -226,7 +227,8 @@ if __name__ == "__main__":
                                                center_origin=_center_origin,
                                                dataset=_dataset,
                                                step_size=_step_size,
-                                               outputbasename=_simple_name_batch)
+                                               outputbasename=_simple_name_batch,
+                                               save_subfolder=f"t{time_point}")
                             out_path.append(_path)
             else:
                 "Input file is not of the correct format."

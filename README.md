@@ -51,7 +51,7 @@ Usage example:
 ```bash
 $ python label_to_ply.py --path *path to one of the segmentation file*.h5 --batch *path to tab delimited file with list of time points and labels*
 ```
-This script will iterate over all time points listed in the batch file and for each generate .ply files for all labels.
+This script will iterate over all time points listed in the batch file and for each generate .ply files for all labels. Output .ply files are automatically sorted in subfolders (tXX)
 
 Formating of batch file
 ```bash
