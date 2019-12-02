@@ -75,6 +75,15 @@ def multi_obj_mesh(segmentation, labels, step_size):
 
     return vertx, faces
 
+# TODO  Implement generation of PLY files for ALL (*) labels
+def get_all_labels(path, dataset):
+    print("- Getting all labels")
+    print(f"- Loading segmentation from :{path}")
+    with h5py.File(path, "r") as f:
+        segmentation = f[dataset][...]
+        all_labels= np.unique(segmentation)
+        print(f"- Found {len(all_labels)} labels")
+        return all_labels
 
 def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False, dataset="label", step_size=1, outputbasename="", save_subfolder=""):
     print(f"- Loading segmentation from :{path}")
@@ -149,10 +158,10 @@ def _parser():
                                                  'label from a h5 segmentation into a ply mesh')
     parser.add_argument('--path', type=str, help='Path to the segmentation file (only h5)',
                         required=True)
-    parser.add_argument('--labels', type=int, help='Labels id to extract (example: --labels 10 25 100)',
+    parser.add_argument('--labels', type=int, help='Labels id to extract (example: --labels 10 25 100).',
                         required=False, nargs='+')
-    parser.add_argument('--multi-file', type=str, help='If "True" all meshes are saved in a different file',
-                        default="False", required=False)
+    parser.add_argument('--multi-file', type=str, help='If "False" all meshes are saved in the same file',
+                        default="True", required=False)
     parser.add_argument('--save-path', type=str, help='Path to alternative save directory',
                         default=None, required=False)
     parser.add_argument('--center-origin', type=str, help='Shift the mesh to the axis origin',
@@ -162,7 +171,12 @@ def _parser():
     parser.add_argument('--step-size', type=int, help='Marching cube step size (int). The higher the coarser the output'
                                                       ' mesh. Default 1 (full resolution)',
                         default=1, required=False)
-
+    # Batch Mode
+    parser.add_argument('--batch', type=str, help='Batch process several h5 files. Pass path to a tab-delimited file for time points and labels. Forces --multi-file TRUE.', default="", required=False)
+    # Simple Name Mode
+    parser.add_argument('--simple-name', type=str, help='Use this as base name for output file(s).', default="", required=False)
+    # Retrieve all labels
+    parser.add_argument('--all', type=str, help='Retrieve all labels', default="False", required=False)
     # Post processing
     parser.add_argument('--reduction', type=float, help='If reduction > 0 a decimation filter is applied.'
                                                         ' MaxValue 1.0 (100%reduction).',
@@ -176,10 +190,7 @@ def _parser():
     parser.add_argument('--edge-smoothing', type=str, help='Apply edge smoothing. Default False,'
                                                           ' seems to help after very intensive decimation',
                         default="False", required=False)
-    #Batch Mode
-    parser.add_argument('--batch', type=str, help='Batch process several h5 files. Pass path to a tab-delimited file for time points and labels. Forces --multi-file TRUE.', default="", required=False)
-    #Simple Name Mode
-    parser.add_argument('--simple-name', type=str, help='Use this as base name for output file(s).', default="", required=False)
+
     
     return parser.parse_args()
 
@@ -193,11 +204,12 @@ if __name__ == "__main__":
         assert os.path.isdir(args.save_path), "Save path is not a directory"
 
     _center_origin = True if args.center_origin == "True" else False
+    _process_all_labels  = True if args.all == "True" else False
     _multi_file = True if args.multi_file == "True" else False
     _batch = True if args.batch !="" else False
     if _batch: _multi_file = True
     _label = ""
-    _labels_list = args.batch
+    _lables_tsv = args.batch
     _dataset = args.dataset
     _step_size = args.step_size
     _simple_name = args.simple_name
@@ -210,13 +222,15 @@ if __name__ == "__main__":
             if _pattern_found:
                 _regex_frgt1 = _pattern_found.group(1)
                 _regex_frgt2 = _pattern_found.group(2)
-                with open(_labels_list) as tsv:
+                with open(_lables_tsv) as tsv:
                     next(tsv) # skip headings
                     for time_point, labels in csv.reader(tsv, delimiter="\t"):
                         _inpath = f"{_regex_frgt1}{time_point}{_regex_frgt2}"
                         print(f"{50*'='} \nProcessing file: {_inpath}")
                         _labels = labels.split()
                         _simple_name_batch = f"{_simple_name}_t{time_point}"
+                        if _process_all_labels :
+                            _labels = get_all_labels(args.path, dataset=_dataset)
                         # Run main script over all labels for multiple files
                         for label in _labels:
                             print(f"Extracting Label: {int(label)}")
@@ -235,7 +249,11 @@ if __name__ == "__main__":
         else:
             # Run main script over all labels for multiple files
             out_path = []
-            for _label in args.labels:
+            if _process_all_labels :
+                _labels_list = get_all_labels(args.path, dataset=_dataset)
+            else:
+                _labels_list = args.labels
+            for _label in _labels_list:
                 print(f"{50*'='} \nExtracting Label: {_label}")
                 _path = label2mesh(args.path,
                                    _label,
@@ -272,3 +290,4 @@ if __name__ == "__main__":
             print("- Applying Laplacian smoothing")
             _edgemoothing = True if args.edge_smoothing == "True" else False
             smooth(out, args.iterations, args.relaxation, _edgemoothing, args.save_path)
+    print(f"{50*'='} \nFinished")

@@ -24,10 +24,12 @@ Usage example:
 ```bash
 $ python label_to_ply.py --path *path to segmentation file*.h5 --labels 10 34 101
 ```
-This script will create a .ply file with all objects in the same file.
+This script will create a .ply file for each label.
 
 #### optional arguments
-* multi-file: If "True" all meshes are saved in a different file. 
+* labels: list of labels to extract
+* all: If "True" all labels of the file are extracted
+* multi-file: If "False" all meshes are saved in the same file. 
 * save-path: path to alternative directory where to save ply file.
 * center-origin: Default False. If true translate the object at the axis origin.
 * dataset: Default "label". Name of the h5 dataset to retrieve the labels from.
