@@ -20,21 +20,32 @@ $ pip install plyfile
 
 
 ## Usage 
-Usage example:
+Usage examples:
+
+To extract specific labels from a file, generating a .ply file  for each label:
 ```bash
-$ python label_to_ply.py --path *path to segmentation file*.h5 --labels 10 34 101
+$ python label_to_ply.py --path *path to segmentation file*.h5 --dataset *name of dataset containing labels in h5 file* --labels 10 34 101
 ```
-This script will create a .ply file for each label.
+To extract all labels from a file, store the .ply files in a specific folders and name them _foo_xxx.ply_:
+
+```bash
+$ python label_to_ply.py --path *path to segmentation file*.h5 --dataset *name of dataset containing labels in h5 file* --all --save-path *path to output folder* --simple-name "foo"
+```
+
+#### mandatory arguments
+* path: Path to the .h5 file to process.
+* dataset: Default "label". Name of the h5 dataset to retrieve the labels from.
 
 #### optional arguments
 * labels: list of labels to extract
-* all: If "True" all labels of the file are extracted
-* multi-file: If "False" all meshes are saved in the same file. 
-* save-path: path to alternative directory where to save ply file.
-* center-origin: Default False. If true translate the object at the axis origin.
-* dataset: Default "label". Name of the h5 dataset to retrieve the labels from.
-* step-size: Default 1. Marching cube step size (only int). The higher the step size the coarser the output.
-* simple-name: Use this as base name for output file(s).
+* all: if passed all labels of the file are extracted.
+* single-file: if passed, all meshes are saved in the same file.
+* save-path: path to directory where to save ply file.
+* center-origin: default False. If true translate the object at the axis origin.
+* step-size: default 1. Marching cube step size (only int). The higher the step size the coarser the output.
+* simple-name: use this as base name for output file(s).
+* batch: tab-delimited file containing list of time points and labels to process (see Batch mode below)
+* batch-all: the script will extract all labels from all files similar to the input files (i.e. all _t/Txxxxx_ time points)
 
 #### Filters arguments
 The filters are implemented as "safe" operations. 
@@ -49,9 +60,9 @@ $ python label_to_ply.py --path *path to segmentation file*.h5 --labels 10 --red
 * edge-smoothing: Apply edge smoothing. Default False, seems to help after very intensive decimation.
 
 #### Batch mode
-Usage example:
+Usage examples:
 ```bash
-$ python label_to_ply.py --path *path to one of the segmentation file*.h5 --batch *path to tab delimited file with list of time points and labels*
+$ python label_to_ply.py --path *path to one of the segmentation file*.h5 --dataset *name of dataset containing labels in h5 file* --batch *path to tab delimited file with list of time points and labels*
 ```
 This script will iterate over all time points listed in the batch file and for each generate .ply files for all labels. Output .ply files are automatically sorted in subfolders (tXX)
 
@@ -61,3 +72,9 @@ Frame	labels
 02	279 256
 06	258 42 10 11
 ```
+To extract all labels from all time points, store the .ply files in a specific folders and name them _foo_xxx.ply_:
+
+```bash
+$ python label_to_ply.py --path *path to segmentation file*.h5 --dataset *name of dataset containing labels in h5 file* --all-batch --save-path *path to output folder* --simple-name "foo"
+```
+This scripts analyses the file name and expect a time point stamp of format _T/t00012_, if so it will parse all files fitting this pattern and store the ply files in subfolders (tXX).

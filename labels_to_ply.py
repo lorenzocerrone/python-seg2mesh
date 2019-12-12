@@ -6,8 +6,9 @@ import csv
 import re
 import plyfile
 import argparse
+from pathlib import Path
 
-
+# TODO  This is a very slow operation, why?- speed up?
 def clean_object(obj):
     """If object has more than one connected component returns only biggest components"""
     print("- Cleaning small detached objects")
@@ -75,7 +76,6 @@ def multi_obj_mesh(segmentation, labels, step_size):
 
     return vertx, faces
 
-# TODO  Implement generation of PLY files for ALL (*) labels
 def get_all_labels(path, dataset):
     print("- Getting all labels")
     print(f"- Loading segmentation from :{path}")
@@ -156,42 +156,45 @@ def label2mesh(path, label, multi_file=True, save_path=None, center_origin=False
 def _parser():
     parser = argparse.ArgumentParser(description='Simple utility for extracting a single '
                                                  'label from a h5 segmentation into a ply mesh')
-    parser.add_argument('--path', type=str, help='Path to the segmentation file (only h5)',
+    parser.add_argument('--path', type=str, help='Path to the segmentation file (only h5).',
                         required=True)
+    parser.add_argument('--dataset', type=str, help='Name of the h5 dataset to retrieve the labels from (use h5ls to see which exist)',
+                        default="label", required=True)
     parser.add_argument('--labels', type=int, help='Labels id to extract (example: --labels 10 25 100).',
                         required=False, nargs='+')
-    parser.add_argument('--multi-file', type=str, help='If "False" all meshes are saved in the same file',
-                        default="True", required=False)
+    parser.add_argument('--single-file', help='All meshes are saved in the same file',
+                        action='store_true')
     parser.add_argument('--save-path', type=str, help='Path to alternative save directory',
                         default=None, required=False)
     parser.add_argument('--center-origin', type=str, help='Shift the mesh to the axis origin',
                         default="False", required=False)
-    parser.add_argument('--dataset', type=str, help='Name of the h5 dataset to retrieve the labels from',
-                        default="label", required=False)
     parser.add_argument('--step-size', type=int, help='Marching cube step size (int). The higher the coarser the output'
-                                                      ' mesh. Default 1 (full resolution)',
+                                                      ' mesh. Default: 1 (full resolution)',
                         default=1, required=False)
-    # Batch Mode
-    parser.add_argument('--batch', type=str, help='Batch process several h5 files. Pass path to a tab-delimited file for time points and labels. Forces --multi-file TRUE.', default="", required=False)
     # Simple Name Mode
     parser.add_argument('--simple-name', type=str, help='Use this as base name for output file(s).', default="", required=False)
+    # Batch Mode
+    parser.add_argument('--batch', type=str, help='Batch process several h5 files. Pass path to a tab-delimited file for time points and labels. Forces --multi-file TRUE.', default="", required=False)
     # Retrieve all labels
-    parser.add_argument('--all', type=str, help='Retrieve all labels', default="False", required=False)
+    parser.add_argument('--all', help='Retrieve all labels', action='store_true')
+    # Retrieve all labels in all files
+    parser.add_argument('--batch-all', help='Retrieve all labels in all files.'
+                                            'Script will attempt to process all time points based on the file passed in --path', action='store_true')
     # Post processing
     parser.add_argument('--reduction', type=float, help='If reduction > 0 a decimation filter is applied.'
-                                                        ' MaxValue 1.0 (100%reduction).',
+                                                        ' MaxValue: 1.0 (100%reduction).',
                         default=-.0, required=False)
 
     parser.add_argument('--iterations', type=int, help='If iteration > 0 a Laplacian smoothing filter is applied.',
                         default=0, required=False)
     parser.add_argument('--relaxation', type=float, help='The smaller the better accuracy but slower convergence.'
-                                                         ' Default 0.1',
+                                                         ' Default: 0.1',
                         default=0.1, required=False)
-    parser.add_argument('--edge-smoothing', type=str, help='Apply edge smoothing. Default False,'
+    parser.add_argument('--edge-smoothing', help='Apply edge smoothing. Default False,'
                                                           ' seems to help after very intensive decimation',
-                        default="False", required=False)
+                        action='store_true', required=False)
 
-    
+
     return parser.parse_args()
 
 
@@ -204,20 +207,51 @@ if __name__ == "__main__":
         assert os.path.isdir(args.save_path), "Save path is not a directory"
 
     _center_origin = True if args.center_origin == "True" else False
-    _process_all_labels  = True if args.all == "True" else False
-    _multi_file = True if args.multi_file == "True" else False
+    _process_all_labels  = args.all
+    _process_all_labels_batch  = args.batch_all
+    _single_file = args.single_file
     _batch = True if args.batch !="" else False
-    if _batch: _multi_file = True
+    if _batch: _single_file = False
     _label = ""
     _lables_tsv = args.batch
     _dataset = args.dataset
     _step_size = args.step_size
     _simple_name = args.simple_name
-    
+
     out_path = []
 
-    if _multi_file:
-        if _batch:
+    if not _single_file:
+        if _process_all_labels_batch:
+            _pattern_found = re.match("(^.*[tT]\d{3,})\d{2}(.*)", args.path)
+            if _pattern_found:
+                _regex_frgt1 = _pattern_found.group(1)
+                _regex_frgt2 = _pattern_found.group(2)
+            else:
+                print("- Error: file name does not contain recognisable time pattern (tXXXXX)")
+            # list all files in directory containing the file passed to args.path
+            p = Path(args.path)
+            for h5_file in sorted(list(p.parents[0].rglob('*.h5'))):
+                _pattern_found = re.match(f"{_regex_frgt1}(.*){_regex_frgt2}", h5_file.name)
+                if _pattern_found:
+                    time_point = _pattern_found.group(1)
+                    print(f"{50*'='} \nProcessing file: {h5_file.name}")
+                    _simple_name_batch = f"{_simple_name}_t{time_point}"
+                    _labels = get_all_labels(h5_file.as_posix(), dataset=_dataset)
+                    # Run main script over all labels for multiple files
+                    for label in _labels:
+                        print(f"Extracting Label: {int(label)}")
+                        _path = label2mesh(h5_file.as_posix(),
+                                            int(label),
+                                            multi_file=True,
+                                            save_path=args.save_path,
+                                            center_origin=_center_origin,
+                                            dataset=_dataset,
+                                            step_size=_step_size,
+                                            outputbasename=_simple_name_batch,
+                                            save_subfolder=f"t{time_point}"
+                                            )
+                        out_path.append(_path)
+        elif _batch:
             _pattern_found = re.match("(^.*[tT]\d{3,})\d{2}(.*)", args.path)
             if _pattern_found:
                 _regex_frgt1 = _pattern_found.group(1)
@@ -227,10 +261,11 @@ if __name__ == "__main__":
                     for time_point, labels in csv.reader(tsv, delimiter="\t"):
                         _inpath = f"{_regex_frgt1}{time_point}{_regex_frgt2}"
                         print(f"{50*'='} \nProcessing file: {_inpath}")
-                        _labels = labels.split()
                         _simple_name_batch = f"{_simple_name}_t{time_point}"
                         if _process_all_labels :
                             _labels = get_all_labels(args.path, dataset=_dataset)
+                        else:
+                            _labels = labels.split()
                         # Run main script over all labels for multiple files
                         for label in _labels:
                             print(f"Extracting Label: {int(label)}")
@@ -279,7 +314,7 @@ if __name__ == "__main__":
     from plyfilters import decimation, smooth
 
     for path in out_path:
-        assert args.reduction < 1, "mesh can not be reduce factor cannot be larger than 1 (more than 100% reduction)"
+        assert args.reduction < 1, "Reduce factor cannot be larger than 1 (more than 100% reduction)"
         if args.reduction > 0:
             print("- Applying decimation")
             out = decimation(path, args.reduction, args.save_path)
@@ -288,6 +323,6 @@ if __name__ == "__main__":
 
         if args.iterations > 0:
             print("- Applying Laplacian smoothing")
-            _edgemoothing = True if args.edge_smoothing == "True" else False
+            _edgemoothing = args.edge_smoothing
             smooth(out, args.iterations, args.relaxation, _edgemoothing, args.save_path)
     print(f"{50*'='} \nFinished")
