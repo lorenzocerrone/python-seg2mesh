@@ -75,6 +75,6 @@ Frame	labels
 To extract all labels from all time points, store the .ply files in a specific folders and name them _foo_xxx.ply_:
 
 ```bash
-$ python label_to_ply.py --path *path to segmentation file*.h5 --dataset *name of dataset containing labels in h5 file* --all-batch --save-path *path to output folder* --simple-name "foo"
+$ python label_to_ply.py --path *path to segmentation file*.h5 --dataset *name of dataset containing labels in h5 file* --batch-all --save-path *path to output folder* --simple-name "foo"
 ```
 This scripts analyses the file name and expect a time point stamp of format _T/t00012_, if so it will parse all files fitting this pattern and store the ply files in subfolders (tXX).

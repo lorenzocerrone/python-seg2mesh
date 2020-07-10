@@ -159,7 +159,7 @@ def _parser():
     parser.add_argument('--path', type=str, help='Path to the segmentation file (only h5).',
                         required=True)
     parser.add_argument('--dataset', type=str, help='Name of the h5 dataset to retrieve the labels from (use h5ls to see which exist)',
-                        default="label", required=True)
+                        default="segmentation", required=True)
     parser.add_argument('--labels', type=int, help='Labels id to extract (example: --labels 10 25 100).',
                         required=False, nargs='+')
     parser.add_argument('--single-file', help='All meshes are saved in the same file',
@@ -230,6 +230,7 @@ if __name__ == "__main__":
                 print("- Error: file name does not contain recognisable time pattern (tXXXXX)")
             # list all files in directory containing the file passed to args.path
             p = Path(args.path)
+            # FIXME problem when passing a complete path to file - no problem when passing file name directly
             for h5_file in sorted(list(p.parents[0].rglob('*.h5'))):
                 _pattern_found = re.match(f"{_regex_frgt1}(.*){_regex_frgt2}", h5_file.name)
                 if _pattern_found:
