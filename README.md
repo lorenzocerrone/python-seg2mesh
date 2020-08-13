@@ -14,7 +14,6 @@ If you are using anaconda python:
 ```bash
 $ conda install -c anaconda numpy h5py vtk
 $ conda install -c conda-forge scikit-image
-$ conda install -c vtk
 $ pip install plyfile
 ```
 
