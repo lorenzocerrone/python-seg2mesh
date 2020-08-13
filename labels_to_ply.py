@@ -45,7 +45,7 @@ def single_obj_mesh(segmentation, label, step_size):
     obj = obj.astype(float)
 
     # Extract vertex and faces
-    vertx, faces, _, _ = measure.marching_cubes_lewiner(obj, step_size=step_size)
+    vertx, faces, _, _ = measure.marching_cubes(obj, step_size=step_size)
     return vertx, faces
 
 
@@ -60,7 +60,7 @@ def multi_obj_mesh(segmentation, labels, step_size):
             obj = obj.astype(float)
 
             # Extract vertex and faces
-            _vertx, _faces, _, _ = measure.marching_cubes_lewiner(obj, step_size=step_size)
+            _vertx, _faces, _, _ = measure.marching_cubes(obj, step_size=step_size)
 
             # Add max to ensure unique faces
             _faces += faces_max
@@ -159,7 +159,7 @@ def _parser():
     parser.add_argument('--path', type=str, help='Path to the segmentation file (only h5).',
                         required=True)
     parser.add_argument('--dataset', type=str, help='Name of the h5 dataset to retrieve the labels from (use h5ls to see which exist)',
-                        default="label", required=True)
+                        default="segmentation", required=True)
     parser.add_argument('--labels', type=int, help='Labels id to extract (example: --labels 10 25 100).',
                         required=False, nargs='+')
     parser.add_argument('--single-file', help='All meshes are saved in the same file',
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     _batch = True if args.batch !="" else False
     if _batch: _single_file = False
     _label = ""
-    _lables_tsv = args.batch
+    _labels_tsv = args.batch
     _dataset = args.dataset
     _step_size = args.step_size
     _simple_name = args.simple_name
@@ -230,6 +230,7 @@ if __name__ == "__main__":
                 print("- Error: file name does not contain recognisable time pattern (tXXXXX)")
             # list all files in directory containing the file passed to args.path
             p = Path(args.path)
+            # FIXME problem when passing a complete path to file - no problem when passing file name directly
             for h5_file in sorted(list(p.parents[0].rglob('*.h5'))):
                 _pattern_found = re.match(f"{_regex_frgt1}(.*){_regex_frgt2}", h5_file.name)
                 if _pattern_found:
@@ -256,7 +257,7 @@ if __name__ == "__main__":
             if _pattern_found:
                 _regex_frgt1 = _pattern_found.group(1)
                 _regex_frgt2 = _pattern_found.group(2)
-                with open(_lables_tsv) as tsv:
+                with open(_labels_tsv) as tsv:
                     next(tsv) # skip headings
                     for time_point, labels in csv.reader(tsv, delimiter="\t"):
                         _inpath = f"{_regex_frgt1}{time_point}{_regex_frgt2}"
