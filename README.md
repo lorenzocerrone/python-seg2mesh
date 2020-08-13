@@ -18,7 +18,7 @@ $ pip install plyfile
 ```
 
 
-## Usage 
+## Usage
 Usage examples:
 
 To extract specific labels from a file, generating a .ply file  for each label:
