@@ -114,16 +114,25 @@ def getLargestCC(segmentation):
     print(f"  [{round(t1-t0, 3)} secs]")
     return largestCC
 
-def get_label(segmentation, label):
+def get_label(segmentation, label, min_vol = 0):
     """Extract a mask where the label is"""
     print(f" -Extracting object...")
     obj = segmentation == label
+    # Compute its volume
+    volume = np.count_nonzero(obj)
+    if volume < min_vol:
+        print(f" -Below threshold: (min {min_vol}), skipping.")
+        print(f"{25*'-'}")
+        return None
     return obj
 
 def label2vtk(segmentation, label, min_vol = 0):
     """Compute a mesh from a single object"""
-    # Retrieve the segmentation corresponding to the label
-    obj = get_label(segmentation, label)
+    # Retrieve the segmentation corresponding to the label, keep it if > min_volume
+    obj = get_label(segmentation, label, min_vol = min_vol)
+
+    if obj is None:
+        return None
 
     if not np.any(obj):
         # If no index match nothing to do
@@ -132,12 +141,7 @@ def label2vtk(segmentation, label, min_vol = 0):
     # Get the largest connected component
     obj = getLargestCC(obj)
     obj = obj.astype(float)
-    # Compute its volume
-    volume = np.count_nonzero(obj)
-    if volume < min_vol:
-        print(f" -Below threshold: (min {min_vol}), skipping.")
-        print(f"{25*'-'}")
-        return None
+
 
     print(f" -Mesh creation...")
     t0 = time.time()
