@@ -163,7 +163,7 @@ def get_segmentation(path, dataset):
         segmentation = f[dataset][...]
     return segmentation
 
-def label2mesh(segmentation, label_list, min_vol=0, save_path=None, outputbasename="", save_subfolder=""):
+def label2mesh(segmentation, label_list, min_vol=0, save_path=None, outfile_basename="", save_subfolder=""):
     k = 0
     for label in label_list:
         # Create vertex & faces from the Segmentation for the label using marching cubes
@@ -193,17 +193,17 @@ def label2mesh(segmentation, label_list, min_vol=0, save_path=None, outputbasena
 
             # Prepare the correct file name and path
             if save_path is None:
-                if outputbasename != "":
-                    outfile_path = f"{outputbasename}_label{label}.ply"
+                if outfile_basename != "":
+                    outfile_path = f"{outfile_basename}_label{label}.ply"
                     outfile_path = os.path.join(os.path.dirname(args.path), save_subfolder, outfile_path)
                 else:
                     outfile_path = os.path.join(save_subfolder,f"{os.path.splitext(args.path)[0]}_label{label}.ply")
             else:
-                if outputbasename != "":
-                    outfile_path = f"{outputbasename}_label{label}.ply"
+                if outfile_basename != "":
+                    outfile_path = f"{outfile_basename}_label{label}.ply"
                     outfile_path = os.path.join(save_path, save_subfolder, outfile_path)
                 else:
-                    outfile_path = os.path.splitext(path)[0]
+                    outfile_path = os.path.splitext(args.path)[0]
                     outfile_path = f"{os.path.basename(outfile_path)}_label{label}.ply"
                     outfile_path = os.path.join(save_path, save_subfolder, outfile_path)
 
@@ -285,7 +285,7 @@ if __name__ == "__main__":
                 _simple_name_batch = f"{_out_name}_t{time_point}"
                 segmentation = get_segmentation(h5_file.as_posix(), dataset= _dataset)
                 _labels = get_all_labels(segmentation, dataset=_dataset)
-                total_processed = label2mesh(segmentation, _labels, min_vol= _min_vol, save_path= args.out_path, outputbasename= _out_name, save_subfolder=f"t{time_point}")
+                total_processed = label2mesh(segmentation, _labels, min_vol= _min_vol, save_path= args.out_path, outfile_basename= _out_name, save_subfolder=f"t{time_point}")
     elif _batch:
         _pattern_found = re.match("(^.*[tT]\d{3,})\d{2}(.*)", args.path)
         if _pattern_found:
@@ -298,7 +298,7 @@ if __name__ == "__main__":
                     _simple_name_batch = f"{_out_name}_t{time_point}"
                     _labels = labels.split()
                     segmentation = get_segmentation(_inpath.as_posix(), dataset= _dataset)
-                    total_processed =label2mesh(segmentation, _labels, min_vol = _min_vol, save_path= args.out_path, outputbasename= _out_name, save_subfolder=f"t{time_point}")
+                    total_processed =label2mesh(segmentation, _labels, min_vol = _min_vol, save_path= args.out_path, outfile_basename= _out_name, save_subfolder=f"t{time_point}")
         else:
             "Input file is not of the correct format."
     else:
@@ -307,7 +307,7 @@ if __name__ == "__main__":
             _labels = get_all_labels(segmentation, dataset=_dataset)
         else:
             _labels = args.labels
-        total_processed = label2mesh(segmentation, _labels, min_vol = _min_vol, save_path= args.out_path, outputbasename= _out_name)
+        total_processed = label2mesh(segmentation, _labels, min_vol = _min_vol, save_path= args.out_path, outfile_basename= _out_name)
 
     t1 = time.time()
     print(f"{50*'='} \nFinished!")
