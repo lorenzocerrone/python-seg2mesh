@@ -8,12 +8,20 @@ import argparse
 import h5py
 from pathlib import Path
 
-# TODO  replace skimage measure.label() and/or marching_cubes by vtk functions? [if exist and are faster...]
+import psutil
+import ray
+
+# TODO  replace skimage measure.label() and/or marching_cubes by vtk functions? [if exist and are faster...].
 from skimage import measure
+# This is incomaptible w/ the Ray multiprocessing library
 from marching_cubes import march
 
 from vtk import vtkPolyData, vtkCellArray, vtkPoints, vtkPolygon, vtkPLYWriter, vtkDecimatePro, vtkSmoothPolyDataFilter, vtkPolyDataNormals
 from vtk.util import numpy_support
+
+####
+_version = "0.4 beta"
+###
 
 def ndarray2vtkMesh(inVertexArray, inFacesArray):
     ''' Code inspired by https://github.com/selaux/numpy2vtk '''
@@ -21,7 +29,7 @@ def ndarray2vtkMesh(inVertexArray, inFacesArray):
     z_index=0
     vtk_points = vtkPoints()
     for p in inVertexArray:
-        z_value = p[2] if inVertexArray.shape[1] == 3 else z_index
+        z_value = p[2] if inVertexArray.shape[1] = = 3 else z_index
         vtk_points.InsertNextPoint([p[0], p[1], z_value])
     number_of_points = vtk_points.GetNumberOfPoints()
 
@@ -50,7 +58,7 @@ def ndarray2vtkMesh(inVertexArray, inFacesArray):
 
     return poly_data
 
-def writePLYfile(vtkPoly, savepath= None):
+def writePLYfile(vtkPoly, savepath = None):
     # write results to output file
 
     writer = vtkPLYWriter()
@@ -108,8 +116,8 @@ def getLargestCC(segmentation):
     t0 = time.time()
     # relabel connected components
     labels = measure.label(segmentation)
-    assert( labels.max() != 0 ) # assume at least 1 CC
-    largestCC = labels == np.argmax(np.bincount(labels.flat)[1:])+1
+    assert( labels.max() ! = 0 ) # assume at least 1 CC
+    largestCC = labels = = np.argmax(np.bincount(labels.flat)[1:])+1
     t1 = time.time()
     print(f"  [{round(t1-t0, 3)} secs]")
     return largestCC
@@ -117,7 +125,7 @@ def getLargestCC(segmentation):
 def get_label(segmentation, label, min_vol = 0):
     """Extract a mask where the label is"""
     print(f" -Extracting object...")
-    obj = segmentation == label
+    obj = segmentation = = label
     # Compute its volume
     volume = np.count_nonzero(obj)
     if volume < min_vol:
@@ -147,7 +155,9 @@ def label2vtk(segmentation, label, min_vol = 0):
     t0 = time.time()
     # Generate a mesh using the marching cubes algorithm.
     # ilastik/marching_cubes implementation is ~ 2x faster than Skimage's one
-    vertx, _, faces = march(obj.T, 0)
+    # vertx, _, faces = march(obj.T, 0)
+    # However ilastik is not compatible w/ Ray parallelisation
+    vertx, faces, normals, _ = measure.marching_cubes_lewiner(obj, 0)
     # Convert the vertices and faces in a VTK polyData
     vtkPoly = ndarray2vtkMesh(vertx, faces.astype(int))
     print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
@@ -157,68 +167,173 @@ def label2vtk(segmentation, label, min_vol = 0):
 
 def get_all_labels(segmentation, dataset):
     print(" -Getting all labels")
-    all_labels= np.unique(segmentation)
+    all_labels = np.unique(segmentation)
     print(f" -Found {len(all_labels)} labels\n{25*'-'}")
     return all_labels
 
 def get_segmentation(path, dataset):
-    print(f"{50*'='}\nProcessing:\n{path}\n{50*'='}")
+    print(f"{50*'='}\nProcessing:\n{path}")
     with h5py.File(path, "r") as f:
         segmentation = f[dataset][...]
     return segmentation
 
-def label2mesh(segmentation, label_list, min_vol=0, save_path=None, outfile_basename="", save_subfolder=""):
-    k = 0
-    for label in label_list:
-        # Create vertex & faces from the Segmentation for the label using marching cubes
-        print(f" -Processing: {label}")
-        vtkPoly = label2vtk(segmentation, label, min_vol= min_vol)
-        if vtkPoly is not None:
-            # Mesh decimation
-            if _reduction > 0:
-                print(" -Applying decimation...")
-                t0 = time.time()
-                vtkPoly = decimation(vtkPoly, reduction= _reduction)
-                print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
-                t1 = time.time()
-                print(f"  [{round(t1-t0, 3)} secs]")
-
-            if _smoothing:
-                print(" -Applying smoothing...")
-                t0 = time.time()
-                vtkPoly = smooth(vtkPoly)
-                print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
-                t1 = time.time()
-                print(f"  [{round(t1-t0, 3)} secs]")
-
-            # Save mesh as a PLY file
-            print(" -Saving PLY file...")
+def label2mesh(segmentation, label, min_vol=0, save_path=None, outfile_basename="", save_subfolder=""):
+    print(f" -Processing: {label}")
+    vtkPoly = label2vtk(segmentation, label, min_vol = min_vol)
+    if vtkPoly is not None:
+        # Mesh decimation
+        if _reduction > 0:
+            print(" -Applying decimation...")
             t0 = time.time()
-
-            # Prepare the correct file name and path
-            if save_path is None:
-                if outfile_basename != "":
-                    outfile_path = f"{outfile_basename}_label{label}.ply"
-                    outfile_path = os.path.join(os.path.dirname(args.path), save_subfolder, outfile_path)
-                else:
-                    outfile_path = os.path.join(save_subfolder,f"{os.path.splitext(args.path)[0]}_label{label}.ply")
-            else:
-                if outfile_basename != "":
-                    outfile_path = f"{outfile_basename}_label{label}.ply"
-                    outfile_path = os.path.join(save_path, save_subfolder, outfile_path)
-                else:
-                    outfile_path = os.path.splitext(args.path)[0]
-                    outfile_path = f"{os.path.basename(outfile_path)}_label{label}.ply"
-                    outfile_path = os.path.join(save_path, save_subfolder, outfile_path)
-
-            os.makedirs(os.path.dirname(outfile_path), exist_ok=True)
-            # Export a PLY
-            k += writePLYfile(vtkPoly, savepath = outfile_path)
-
+            vtkPoly = decimation(vtkPoly, reduction = _reduction)
+            print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
             t1 = time.time()
             print(f"  [{round(t1-t0, 3)} secs]")
-            print(f"{25*'-'}")
-    return k
+
+        if _smoothing:
+            print(" -Applying smoothing...")
+            t0 = time.time()
+            vtkPoly = smooth(vtkPoly)
+            print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
+            t1 = time.time()
+            print(f"  [{round(t1-t0, 3)} secs]")
+
+        # Save mesh as a PLY file
+        print(" -Saving PLY file...")
+        t0 = time.time()
+
+        # Prepare the correct file name and path
+        if save_path is None:
+            if outfile_basename ! = "":
+                outfile_path = f"{outfile_basename}_label{label}.ply"
+                outfile_path = os.path.join(os.path.dirname(args.path), save_subfolder, outfile_path)
+            else:
+                outfile_path = os.path.join(save_subfolder,f"{os.path.splitext(args.path)[0]}_label{label}.ply")
+        else:
+            if outfile_basename ! = "":
+                outfile_path = f"{outfile_basename}_label{label}.ply"
+                outfile_path = os.path.join(save_path, save_subfolder, outfile_path)
+            else:
+                outfile_path = os.path.splitext(args.path)[0]
+                outfile_path = f"{os.path.basename(outfile_path)}_label{label}.ply"
+                outfile_path = os.path.join(save_path, save_subfolder, outfile_path)
+
+        os.makedirs(os.path.dirname(outfile_path), exist_ok=True)
+        # Export a PLY
+        writePLYfile(vtkPoly, savepath = outfile_path)
+
+        t1 = time.time()
+        print(f"  [{round(t1-t0, 3)} secs]")
+        print(f"{25*'-'}")
+        return 1
+    else:
+        return 0
+
+@ray.remote
+def label2mesh_mp(segmentation, label, min_vol=0, save_path=None, outfile_basename="", save_subfolder=""):
+    #segmentation = np.frombuffer(var_dict['container_array']).reshape(var_dict['seg_shape'])
+    print(f" -Processing: {label}")
+    vtkPoly = label2vtk(segmentation, label, min_vol = min_vol)
+    if vtkPoly is not None:
+        # Mesh decimation
+        if _reduction > 0:
+            print(" -Applying decimation...")
+            t0 = time.time()
+            vtkPoly = decimation(vtkPoly, reduction = _reduction)
+            print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
+            t1 = time.time()
+            print(f"  [{round(t1-t0, 3)} secs]")
+
+        if _smoothing:
+            print(" -Applying smoothing...")
+            t0 = time.time()
+            vtkPoly = smooth(vtkPoly)
+            print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
+            t1 = time.time()
+            print(f"  [{round(t1-t0, 3)} secs]")
+
+        # Save mesh as a PLY file
+        print(" -Saving PLY file...")
+        t0 = time.time()
+
+        # Prepare the correct file name and path
+        if save_path is None:
+            if outfile_basename ! = "":
+                outfile_path = f"{outfile_basename}_label{label}.ply"
+                outfile_path = os.path.join(os.path.dirname(args.path), save_subfolder, outfile_path)
+            else:
+                outfile_path = os.path.join(save_subfolder,f"{os.path.splitext(args.path)[0]}_label{label}.ply")
+        else:
+            if outfile_basename ! = "":
+                outfile_path = f"{outfile_basename}_label{label}.ply"
+                outfile_path = os.path.join(save_path, save_subfolder, outfile_path)
+            else:
+                outfile_path = os.path.splitext(args.path)[0]
+                outfile_path = f"{os.path.basename(outfile_path)}_label{label}.ply"
+                outfile_path = os.path.join(save_path, save_subfolder, outfile_path)
+
+        os.makedirs(os.path.dirname(outfile_path), exist_ok=True)
+        # Export a PLY
+        writePLYfile(vtkPoly, savepath = outfile_path)
+
+        t1 = time.time()
+        print(f"  [{round(t1-t0, 3)} secs]")
+        print(f"{25*'-'}")
+        return 1
+    else:
+        return 0
+
+
+# Dummy remote function for test purpose
+@ray.remote
+def dummyfunc(segmentation, label, min_vol):
+    print(f"Processing label: {label}...")
+    print(f" -Extracting object...")
+    obj = segmentation = = label
+    # Compute its volume
+    volume = np.count_nonzero(obj)
+    if volume < min_vol:
+        print(f" -Below threshold: (min {min_vol}), skipping.")
+        print(f"{25*'-'}")
+        return 0
+    if not np.any(obj):
+        # If no index match nothing to do
+        print(f" -Label: {label} Not found")
+        return 0
+    # Get the largest connected component
+    obj = getLargestCC(obj)
+    obj = obj.astype(float)
+
+    print(f" -Mesh creation...")
+    t0 = time.time()
+    # Generate a mesh using the marching cubes algorithm.
+    # ilastik/marching_cubes implementation is ~ 2x faster than Skimage's one
+    #vertx, _, faces = march(obj.T, 0)
+    vertx, faces, normals, _ = measure.marching_cubes_lewiner(obj, 0)
+    
+    # Convert the vertices and faces in a VTK polyData
+    #vtkPoly = ndarray2vtkMesh(vertx, faces.astype(int))
+    #print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
+    t1 = time.time()
+    print(f"  [{round(t1-t0, 3)} secs]")
+    return 1
+
+
+def labels2meshes(segmentation, labels_list, min_vol=0, save_path=None, outfile_basename="", save_subfolder=""):
+
+    if _multiprocessing:
+        print(f"Using {num_cpus} cores\n{50*'='}")
+        result_ids = []
+        # segmentation is stored in shared memory and can be accessed by all of the worker processes without creating copies.
+        segmentation_id = ray.put(segmentation)
+        #result_ids = [dummyfunc.remote(segmentation_id, label, min_vol) for label in labels_list]
+        result_ids = [label2mesh_mp.remote(segmentation_id, label, min_vol, save_path, outfile_basename, save_subfolder) for label in labels_list]
+        results = ray.get(result_ids)
+        return sum(results)
+    else:
+        results = []
+        results = [label2mesh(segmentation, label, min_vol, save_path, outfile_basename, save_subfolder) for label in labels_list]
+        return sum(results)
 
 def args_parser():
     parser = argparse.ArgumentParser(description='Simple utility for generating ply mesh(es)'
@@ -235,13 +350,15 @@ def args_parser():
     # Retrieve all labels
     parser.add_argument('--all', help='Retrieve all labels', action='store_true')
     # Filter labels based on size
-    parser.add_argument('--min-volume', type=int, help='Minimal volume (voxels) of labels for extraction.', required=False, default= 0)
+    parser.add_argument('--min-volume', type=int, help='Minimal volume (voxels) of labels for extraction.', required=False, default = 0)
     # Specify output path & base name
     parser.add_argument('--out-path', type=str, help='Path to alternative save directory', default=None, required=False)
     parser.add_argument('--out-name', type=str, help='Use this as base name for output file(s).', default="", required=False)
     # Mesh post-processing
     parser.add_argument('--reduction', type=float, help='If reduction > 0 a decimation filter is applied.' ' MaxValue: 1.0 (100%reduction).', default=-.0, required=False)
     parser.add_argument('--smoothing', help='To apply a Laplacian smoothing filter.', action='store_true')
+    # Multiprocessing
+    parser.add_argument('--multiprocessing', help='Uses all available cores for parallel processing.', action='store_true')
     # Batch Modes:
     # Specific files & labels (from a TSV file)
     parser.add_argument('--batch', type=str, help='Batch process several h5 files. Pass path to a tab-delimited file for time points and labels.', default="", required=False)
@@ -250,7 +367,7 @@ def args_parser():
                                             'Script will attempt to process all time points based on the file passed in --path', action='store_true')
     return parser.parse_args()
 
-if __name__ == "__main__":
+if __name__ = = "__main__":
     # Pars and check inputs
     args = args_parser()
 
@@ -269,10 +386,17 @@ if __name__ == "__main__":
     _reduction = args.reduction
     _smoothing = args.smoothing
     _min_vol = args.min_volume
+    _multiprocessing = args.multiprocessing
+
+    if _multiprocessing:
+        #Start Ray
+        num_cpus = psutil.cpu_count(logical=False)
+        ray.init(num_cpus=num_cpus)
 
     total_processed = 0
 
-    t0= time.time()
+    t0 = time.time()
+    print(f"{50*'='}\nseg2mesh v{_version}")
     if _process_all_labels_batch:
         _pattern_found = re.match("(^.*[tT]\d{3,})\d{2}(.*)", args.path)
         if _pattern_found:
@@ -287,9 +411,9 @@ if __name__ == "__main__":
             if _pattern_found:
                 time_point = _pattern_found.group(1)
                 _simple_name_batch = f"{_out_name}_t{time_point}"
-                segmentation = get_segmentation(h5_file.as_posix(), dataset= _dataset)
+                segmentation = get_segmentation(h5_file.as_posix(), dataset = _dataset)
                 _labels = get_all_labels(segmentation, dataset=_dataset)
-                total_processed = label2mesh(segmentation, _labels, min_vol= _min_vol, save_path= args.out_path, outfile_basename= _out_name, save_subfolder=f"t{time_point}")
+                total_processed = labels2meshes(segmentation, _labels, min_vol = _min_vol, save_path = args.out_path, outfile_basename = _out_name, save_subfolder = f"t{time_point}")
     elif _batch:
         _pattern_found = re.match("(^.*[tT]\d{3,})\d{2}(.*)", args.path)
         if _pattern_found:
@@ -301,17 +425,17 @@ if __name__ == "__main__":
                     _inpath = f"{_regex_frgt1}{time_point}{_regex_frgt2}"
                     _simple_name_batch = f"{_out_name}_t{time_point}"
                     _labels = labels.split()
-                    segmentation = get_segmentation(_inpath.as_posix(), dataset= _dataset)
-                    total_processed =label2mesh(segmentation, _labels, min_vol = _min_vol, save_path= args.out_path, outfile_basename= _out_name, save_subfolder=f"t{time_point}")
+                    segmentation = get_segmentation(_inpath.as_posix(), dataset = _dataset)
+                    total_processed =labels2meshes(segmentation, _labels, min_vol = _min_vol, save_path = args.out_path, outfile_basename = _out_name, save_subfolder=f"t{time_point}")
         else:
             "Input file is not of the correct format."
     else:
-        segmentation = get_segmentation(args.path, dataset= _dataset)
+        segmentation = get_segmentation(args.path, dataset = _dataset)
         if _process_all_labels :
             _labels = get_all_labels(segmentation, dataset=_dataset)
         else:
             _labels = args.labels
-        total_processed = label2mesh(segmentation, _labels, min_vol = _min_vol, save_path= args.out_path, outfile_basename= _out_name)
+        total_processed = labels2meshes(segmentation, _labels, min_vol = _min_vol, save_path = args.out_path, outfile_basename = _out_name)
 
     t1 = time.time()
     print(f"{50*'='} \nFinished!")
