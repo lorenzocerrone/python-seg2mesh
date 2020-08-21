@@ -16,7 +16,7 @@ from skimage import measure
 
 from vtk import vtkPolyData, vtkCellArray, vtkPoints, vtkPolygon, vtkPLYWriter, vtkDecimatePro, vtkSmoothPolyDataFilter, vtkPolyDataNormals
 ####
-_version = "0.4 beta"
+_version = "0.4"
 ###
 
 def ndarray2vtkMesh(inVertexArray, inFacesArray):
@@ -61,7 +61,6 @@ def writePLYfile(vtkPoly, savepath = None):
     writer.SetInputData(vtkPoly)
     writer.SetFileName(savepath)
     writer.Write()
-    print(f" -File: {savepath}")
     return 1
 
 def decimation(vtkPoly, reduction=0.25):
@@ -107,10 +106,6 @@ def smooth(vtkPoly, iterations=100, relaxation=0.1, edgesmoothing=True):
 
 def getLargestCC(segmentation):
     """Returns largest connected components"""
-    # ~2x faster than clean_object(obj)
-    print(" -Cleaning small detached objects...")
-    t0 = time.time()
-
     # find bounding box
     _x, _y, _z = np.nonzero(segmentation)
     bb_segmentation = segmentation[_x.min():_x.max(),
@@ -127,34 +122,25 @@ def getLargestCC(segmentation):
     largestCC = np.zeros(segmentation.shape, dtype=_largestCC.dtype)
     largestCC[_x.min():_x.max(), _y.min():_y.max(), _z.min():_z.max()] = _largestCC
 
-    t1 = time.time()
-    print(f"  [{round(t1-t0, 3)} secs]")
     return largestCC
 
 def _getLargestCC(segmentation):
     """Legacy version, substitute by getLargestCC"""
     """Returns largest connected components"""
     # ~2x faster than clean_object(obj)
-    print(" -Cleaning small detached objects...")
-    t0 = time.time()
-
+    
     # relabel connected components
     labels = measure.label(segmentation)
     assert(labels.max() != 0) # assume at least 1 CC
     largestCC = labels == np.argmax(np.bincount(labels.flat)[1:])+1
-    t1 = time.time()
-    print(f"  [{round(t1-t0, 3)} secs]")
     return largestCC
 
 def get_label(segmentation, label, min_vol = 0):
     """Extract a mask where the label is"""
-    print(f" -Extracting object...")
     obj = segmentation == label
     # Compute its volume
     volume = np.count_nonzero(obj)
     if volume < min_vol:
-        print(f" -Below threshold: (min {min_vol}), skipping.")
-        print(f"{25*'-'}")
         return None
     return obj
 
@@ -168,31 +154,21 @@ def label2vtk(segmentation, label, min_vol = 0):
 
     if not np.any(obj):
         # If no index match nothing to do
-        print(f" -Label: {label} Not found")
         return None
     # Get the largest connected component
     obj = getLargestCC(obj)
     obj = obj.astype(float)
 
 
-    print(f" -Mesh creation...")
-    t0 = time.time()
     # Generate a mesh using the marching cubes algorithm.
-    # ilastik/marching_cubes implementation is ~ 2x faster than Skimage's one
-    # vertx, _, faces = march(obj.T, 0)
-    # However ilastik is not compatible w/ Ray parallelisation
     vertx, faces, normals, _ = measure.marching_cubes(obj, 0, step_size=_step_size)
     # Convert the vertices and faces in a VTK polyData
     vtkPoly = ndarray2vtkMesh(vertx, faces.astype(int))
-    print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
-    t1 = time.time()
-    print(f"  [{round(t1-t0, 3)} secs]")
     return vtkPoly
 
 def get_all_labels(segmentation, dataset):
     print(" -Getting all labels")
     all_labels = np.unique(segmentation)
-    print(f" -Found {len(all_labels)} labels\n{25*'-'}")
     return all_labels
 
 def get_segmentation(path, dataset):
@@ -208,24 +184,13 @@ def label2mesh(segmentation, label, min_vol=0, save_path=None, outfile_basename=
         # Mesh decimation
         if _reduction > 0:
             print(" -Applying decimation...")
-            t0 = time.time()
             vtkPoly = decimation(vtkPoly, reduction = _reduction)
-            print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
-            t1 = time.time()
-            print(f"  [{round(t1-t0, 3)} secs]")
 
         if _smoothing:
             print(" -Applying smoothing...")
-            t0 = time.time()
             vtkPoly = smooth(vtkPoly)
-            print(f"  [{vtkPoly.GetNumberOfPoints()} vertices | {vtkPoly.GetNumberOfPolys()} faces]")
-            t1 = time.time()
-            print(f"  [{round(t1-t0, 3)} secs]")
 
         # Save mesh as a PLY file
-        print(" -Saving PLY file...")
-        t0 = time.time()
-
         # Prepare the correct file name and path
         if save_path is None:
             if outfile_basename != "":
@@ -245,10 +210,6 @@ def label2mesh(segmentation, label, min_vol=0, save_path=None, outfile_basename=
         os.makedirs(os.path.dirname(outfile_path), exist_ok=True)
         # Export a PLY
         writePLYfile(vtkPoly, savepath = outfile_path)
-
-        t1 = time.time()
-        print(f"  [{round(t1-t0, 3)} secs]")
-        print(f"{25*'-'}")
         return 1
     else:
         return 0
@@ -303,11 +264,11 @@ def args_parser():
     # Specify output path & base name
     parser.add_argument('--out-path', type=str, help='Path to alternative save directory', default=None, required=False)
     parser.add_argument('--out-name', type=str, help='Use this as base name for output file(s).', default="", required=False)
-    # Mesh post-processing
-    parser.add_argument('--reduction', type=float, help='If reduction > 0 a decimation filter is applied.' ' MaxValue: 1.0 (100%reduction).', default=-.0, required=False)
-    parser.add_argument('--smoothing', help='To apply a Laplacian smoothing filter.', action='store_true')
+    # Mesh extraction and post-processing
     parser.add_argument('--step-size', help='Step size for the marching cube algorithm, larger steps yield a coarser but faster result. Default 2 (voxel).',
                         default=2, required=False)
+    parser.add_argument('--reduction', type=float, help='If reduction > 0 a decimation filter is applied.' ' MaxValue: 1.0 (100%reduction).', default=-.0, required=False)
+    parser.add_argument('--smoothing', help='To apply a Laplacian smoothing filter.', action='store_true')
     # Multiprocessing
     parser.add_argument('--multiprocessing', help='Define the number of cores to use for parallel processing.', required=False, default=1, type=int)
     # Batch Modes:

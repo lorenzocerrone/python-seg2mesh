@@ -9,23 +9,24 @@ Simple python utility for exporting single or multiple labels from a segmentatio
 - scikit-image
 - h5py
 - vtk
+- psutil
 
 ## Installation
 
 If you are using anaconda python:
 
 ```bash
-conda install -c conda-forge scikit-image h5py numpy vtk netcdf4
+conda install -c conda-forge scikit-image h5py numpy vtk netcdf4 psutil
 ```
 
 ## Versions
 
-- **0.4 beta - Multiprocessing (work in progress...)**
+- **0.4 - Multiprocessing (work in progress...)**
   - Use the `--multiprocessing` to set the number of parallel process.
-  - Had to revert to the `skimage` marching_cubes implementation insteads of `ilastik`.
+  - Revert to the `skimage` marching_cubes implementation insteads of `ilastik`.
   - Add flag `--step-size` to the marching_cubes algorithm, larger steps yield a coarser but faster result.
   - Generic improvement in performance.
-  - Safe error handling. Now in case of a corrupted label the script does not stop. 
+  - Safe error handling. Now in case of a corrupted label the script does not stop.
 
 - **0.3 - Code revamp for performances**
   - use `ilastik` marching_cubes implementation insteads of `skimage`, speed gain: ~2x.
