@@ -145,10 +145,8 @@ def _getLargestCC(segmentation):
 
     # relabel connected components
     labels = measure.label(segmentation)
-
     assert(labels.max() != 0) # assume at least 1 CC
     largestCC = labels == np.argmax(np.bincount(labels.flat)[1:])+1
-
     t1 = time.time()
     print(f"  [{round(t1-t0, 3)} secs]")
     return largestCC
@@ -324,7 +322,6 @@ def args_parser():
     parser.add_argument('--batch-all', help='Retrieve all labels in all files.'
                                             'Script will attempt to process all time points based on the file passed in --path', action='store_true')
     return parser.parse_args()
-
 
 if __name__ == "__main__":
     # Pars and check inputs
