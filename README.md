@@ -21,7 +21,7 @@ conda install -c conda-forge scikit-image h5py numpy vtk netcdf4 psutil
 
 ## Versions
 
-- **0.4 - Multiprocessing (work in progress...)**
+- **0.4 - Multiprocessing**
   - Use the `--multiprocessing` to set the number of parallel process.
   - Revert to the `skimage` marching_cubes implementation insteads of `ilastik`.
   - Add flag `--step-size` to the marching_cubes algorithm, larger steps yield a coarser but faster result.
@@ -91,7 +91,9 @@ python seg2mesh.py --path *path to segmentation file*.h5 --dataset *name of data
 - **batch-all**: the script will extract all labels from all files which names are similar to the input files (i.e. all _t/Txxxxx_ time points)
 - **multiprocessing**: if called enables parallel processing of labels using all available cores.
 
-### Filters arguments
+### Mesh-related arguments
+
+- **step-size**: Step size for the marching cube algorithm, larger steps yield a coarser but faster result. Default 2 (voxel).
 
 These modify the mesh before it is saved
 
