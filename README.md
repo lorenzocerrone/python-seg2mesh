@@ -9,26 +9,24 @@ Simple python utility for exporting single or multiple labels from a segmentatio
 - scikit-image
 - h5py
 - vtk
-- ilastik/marching_cubes
-- ray
+- psutil
 
 ## Installation
 
 If you are using anaconda python:
 
 ```bash
-conda install -c conda-forge scikit-image h5py numpy vtk netcdf4
-conda install -c ilastik-forge -c conda-forge marching_cubes
-pip install ray
+conda install -c conda-forge scikit-image h5py numpy vtk netcdf4 psutil
 ```
 
 ## Versions
 
-- **0.4 beta - Multiprocessing (work in progress...)**
-  - Use the `--multiprocessing` flag to enable parallel processing of labels using all available cores.
-  - Internally seg2mesh uses `ray` which should allow delployment on a cluster.
-  - Had to revert to the `skimage` marching_cubes implementation insteads of `ilastik`.
-  - (!) although running, multiprocessing is **not** currently faster. Code must still be adapted
+- **0.4 - Multiprocessing (work in progress...)**
+  - Use the `--multiprocessing` to set the number of parallel process.
+  - Revert to the `skimage` marching_cubes implementation insteads of `ilastik`.
+  - Add flag `--step-size` to the marching_cubes algorithm, larger steps yield a coarser but faster result.
+  - Generic improvement in performance.
+  - Safe error handling. Now in case of a corrupted label the script does not stop.
 
 - **0.3 - Code revamp for performances**
   - use `ilastik` marching_cubes implementation insteads of `skimage`, speed gain: ~2x.
