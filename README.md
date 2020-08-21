@@ -10,6 +10,7 @@ Simple python utility for exporting single or multiple labels from a segmentatio
 - h5py
 - vtk
 - ilastik/marching_cubes
+- ray
 
 ## Installation
 
@@ -18,9 +19,16 @@ If you are using anaconda python:
 ```bash
 conda install -c conda-forge scikit-image h5py numpy vtk netcdf4
 conda install -c ilastik-forge -c conda-forge marching_cubes
+pip install ray
 ```
 
 ## Versions
+
+- **0.4 beta - Multiprocessing (work in progress...)**
+  - Use the `--multiprocessing` flag to enable parallel processing of labels using all available cores.
+  - Internally seg2mesh uses `ray` which should allow delployment on a cluster.
+  - Had to revert to the `skimage` marching_cubes implementation insteads of `ilastik`.
+  - (!) although running, multiprocessing is **not** currently faster. Code must still be adapted
 
 - **0.3 - Code revamp for performances**
   - use `ilastik` marching_cubes implementation insteads of `skimage`, speed gain: ~2x.
@@ -83,6 +91,7 @@ python seg2mesh.py --path *path to segmentation file*.h5 --dataset *name of data
 - **min-volume**: minimal volume of label to be extracted (in voxels).
 - **batch**: tab-delimited file containing list of time points and labels to process (see *Batch mode- below)
 - **batch-all**: the script will extract all labels from all files which names are similar to the input files (i.e. all _t/Txxxxx_ time points)
+- **multiprocessing**: if called enables parallel processing of labels using all available cores.
 
 ### Filters arguments
 
