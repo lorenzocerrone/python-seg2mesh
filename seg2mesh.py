@@ -12,14 +12,9 @@ import psutil
 from concurrent import futures
 import traceback
 
-# TODO  replace skimage measure.label() and/or marching_cubes by vtk functions? [if exist and are faster...].
 from skimage import measure
-# This is incomaptible w/ the Ray multiprocessing library
-from marching_cubes import march
 
 from vtk import vtkPolyData, vtkCellArray, vtkPoints, vtkPolygon, vtkPLYWriter, vtkDecimatePro, vtkSmoothPolyDataFilter, vtkPolyDataNormals
-from vtk.util import numpy_support
-
 ####
 _version = "0.4 beta"
 ###
