@@ -108,19 +108,32 @@ def getLargestCC(segmentation):
     """Returns largest connected components"""
     # find bounding box
     _x, _y, _z = np.nonzero(segmentation)
-    bb_segmentation = segmentation[_x.min():_x.max(),
-                                   _y.min():_y.max(),
-                                   _z.min():_z.max()]
+    # the max ensure that the bounding box is at least one voxel deep for each channel
+    x_min, x_max = _x.min(), _x.max()
+    y_min, y_max = _y.min(), _y.max()
+    z_min, z_max = _z.min(), _z.max()
+
+    # the segment should not be 2D in any axis
+    if x_min == x_max or y_min == y_max or z_min == z_max:
+        print(f'Segment is 2D, shape is {[x_max - x_min, y_max - y_min, z_max - z_min]}')
+        return None
+
+    bb_segmentation = segmentation[x_min:x_max,
+                                   y_min:y_max,
+                                   z_min:z_max]
 
     # relabel connected components
     labels = measure.label(bb_segmentation)
 
-    assert(labels.max() != 0) # assume at least 1 CC
+    # segmentation should have at least 1 CC
+    if labels.max() != 0:
+        print('Segment has no CC')
+        return None
     _largestCC = labels == np.argmax(np.bincount(labels.flat)[1:])+1
 
     # put bounding box back in the original volume
     largestCC = np.zeros(segmentation.shape, dtype=_largestCC.dtype)
-    largestCC[_x.min():_x.max(), _y.min():_y.max(), _z.min():_z.max()] = _largestCC
+    largestCC[x_min:x_max, y_min:y_max, z_min:z_max] = _largestCC
 
     return largestCC
 
@@ -141,6 +154,7 @@ def get_label(segmentation, label, min_vol = 0):
     # Compute its volume
     volume = np.count_nonzero(obj)
     if volume < min_vol:
+        print('Segment smaller that minimum volume')
         return None
     return obj
 
@@ -155,8 +169,13 @@ def label2vtk(segmentation, label, min_vol = 0):
     if not np.any(obj):
         # If no index match nothing to do
         return None
+
     # Get the largest connected component
     obj = getLargestCC(obj)
+    if obj is None:
+        return None
+
+    # cast obj in float a required by marching cube
     obj = obj.astype(float)
 
 
@@ -220,7 +239,13 @@ def label2mesh_mp(iterator_element):
     segmentation, label, min_vol, save_path, outfile_basename, save_subfolder = iterator_element
     try:
         result = label2mesh(segmentation, label, min_vol, save_path, outfile_basename, save_subfolder)
+
+    except KeyboardInterrupt:
+        # capture ctrl + C
+        print('you exited the program.')
+        exit(0)
     except:
+        # generic problem
         print(f'Runtime exception while processing label: {label}.')
         print(traceback.format_exc())
         result = 0
