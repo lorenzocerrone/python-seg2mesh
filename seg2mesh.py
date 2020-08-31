@@ -126,7 +126,7 @@ def getLargestCC(segmentation):
     labels = measure.label(bb_segmentation)
 
     # segmentation should have at least 1 CC
-    if labels.max() != 0:
+    if labels.max() == 0:
         print('Segment has no CC')
         return None
     _largestCC = labels == np.argmax(np.bincount(labels.flat)[1:])+1
