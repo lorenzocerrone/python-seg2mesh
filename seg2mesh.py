@@ -115,7 +115,7 @@ def getLargestCC(segmentation):
 
     # the segment should not be 2D in any axis
     if x_min == x_max or y_min == y_max or z_min == z_max:
-        print(f'Segment is 2D, shape is {[x_max - x_min, y_max - y_min, z_max - z_min]}')
+        print(f' -Segment is 2D, shape is {[x_max - x_min, y_max - y_min, z_max - z_min]}')
         return None
 
     bb_segmentation = segmentation[x_min:x_max,
@@ -127,7 +127,7 @@ def getLargestCC(segmentation):
 
     # segmentation should have at least 1 CC
     if labels.max() != 0:
-        print('Segment has no CC')
+        print(' -Segment has no CC')
         return None
     _largestCC = labels == np.argmax(np.bincount(labels.flat)[1:])+1
 
@@ -154,7 +154,7 @@ def get_label(segmentation, label, min_vol = 0):
     # Compute its volume
     volume = np.count_nonzero(obj)
     if volume < min_vol:
-        print('Segment smaller that minimum volume')
+        print('   -Segment smaller that minimum volume')
         return None
     return obj
 
@@ -171,7 +171,7 @@ def label2vtk(segmentation, label, min_vol = 0):
         return None
 
     # Get the largest connected component
-    obj = getLargestCC(obj)
+    obj = _getLargestCC(obj)
     if obj is None:
         return None
 
@@ -188,6 +188,7 @@ def label2vtk(segmentation, label, min_vol = 0):
 def get_all_labels(segmentation, dataset):
     print(" -Getting all labels")
     all_labels = np.unique(segmentation)
+    print(f" -Found: {len(all_labels)}")
     return all_labels
 
 def get_segmentation(path, dataset):
@@ -202,11 +203,9 @@ def label2mesh(segmentation, label, min_vol=0, save_path=None, outfile_basename=
     if vtkPoly is not None:
         # Mesh decimation
         if _reduction > 0:
-            print(" -Applying decimation...")
             vtkPoly = decimation(vtkPoly, reduction = _reduction)
 
         if _smoothing:
-            print(" -Applying smoothing...")
             vtkPoly = smooth(vtkPoly)
 
         # Save mesh as a PLY file
@@ -228,6 +227,7 @@ def label2mesh(segmentation, label, min_vol=0, save_path=None, outfile_basename=
 
         os.makedirs(os.path.dirname(outfile_path), exist_ok=True)
         # Export a PLY
+        print(f" >Saving: {label}")
         writePLYfile(vtkPoly, savepath = outfile_path)
         return 1
     else:
