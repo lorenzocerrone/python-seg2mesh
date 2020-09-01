@@ -126,8 +126,8 @@ def getLargestCC(segmentation):
     labels = measure.label(bb_segmentation)
 
     # segmentation should have at least 1 CC
-    if labels.max() != 0:
-        print(' -Segment has no CC')
+    if labels.max() == 0:
+        print(' -Label has no CC')
         return None
     _largestCC = labels == np.argmax(np.bincount(labels.flat)[1:])+1
 
@@ -154,7 +154,7 @@ def get_label(segmentation, label, min_vol = 0):
     # Compute its volume
     volume = np.count_nonzero(obj)
     if volume < min_vol:
-        print('   -Segment smaller that minimum volume')
+        print(f' -{label} is smaller that minimum volume')
         return None
     return obj
 
