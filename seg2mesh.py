@@ -154,7 +154,7 @@ def get_label(segmentation, label, min_vol = 0):
     # Compute its volume
     volume = np.count_nonzero(obj)
     if volume < min_vol:
-        print(f' -{label} is smaller that minimum volume')
+        print(f' -Info: {label} smaller than min. volume, skipping.')
         return None
     return obj
 
